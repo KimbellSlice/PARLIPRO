@@ -4,7 +4,7 @@ import { writeRoomState, subscribeToRoom, checkRoomExists } from "./firebase.js"
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
-const sortPrec = (s, type) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if (a[k] !== b[k]) return a[k] - b[k]; const aL = a[h].length ? a[h][a[h].length - 1] : -1, bL = b[h].length ? b[h][b[h].length - 1] : -1; if (aL !== bL) return aL - bL; return a.initialOrder - b.initialOrder; }); };
+const sortPrec = (s, type) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; return (a.initialOrder||0) - (b.initialOrder||0); }); };
 const fmtTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 const FONTS_LINK = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap";
@@ -642,7 +642,9 @@ function SpectatorView({ roomCode }) {
     );
   }
 
-  const { students = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null } = state;
+  // Firebase drops empty arrays, so ensure all student fields exist
+  const students = (rawStudents || []).map(s => ({ ...s, speeches: s.speeches || 0, questions: s.questions || 0, speechHistory: s.speechHistory || [], questionHistory: s.questionHistory || [], initialOrder: s.initialOrder || 0 }));
   const roundComplete = currentBillIdx >= docket.length;
   const currentBill = docket[currentBillIdx] || null;
   const getStudent = (id) => students.find(s => s.id === id);
