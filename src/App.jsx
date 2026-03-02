@@ -51,7 +51,7 @@ function useProfanityToast() {
 
 const Brand = ({ size = "large" }) => (
   <div style={{ textAlign: size === "large" ? "center" : "left" }}>
-    <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: size === "large" ? 120 : 32, display: size === "large" ? "block" : "inline-block", margin: size === "large" ? "0 auto 8px" : 0 }} />
+    <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: size === "large" ? 120 : 44, display: size === "large" ? "block" : "inline-block", margin: size === "large" ? "0 auto 8px" : 0 }} />
     {size === "large" && <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Precedence Tracking</h1>}
   </div>
 );
