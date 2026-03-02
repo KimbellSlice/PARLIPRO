@@ -607,6 +607,7 @@ function SpectatorView({ roomCode }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const unsub = subscribeToRoom(roomCode, (data) => {
@@ -615,6 +616,17 @@ function SpectatorView({ roomCode }) {
     });
     return unsub;
   }, [roomCode]);
+
+  const activeSpeechFromState = state?.activeSpeech || null;
+  const speechStartFromState = state?.speechStartTime || null;
+
+  useEffect(() => {
+    if (!speechStartFromState || !activeSpeechFromState) { setElapsed(0); return; }
+    const tick = () => setElapsed(Math.floor((Date.now() - speechStartFromState) / 1000));
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [speechStartFromState, activeSpeechFromState]);
 
   if (!state) {
     return (
@@ -634,16 +646,6 @@ function SpectatorView({ roomCode }) {
   const roundComplete = currentBillIdx >= docket.length;
   const currentBill = docket[currentBillIdx] || null;
   const getStudent = (id) => students.find(s => s.id === id);
-
-  // Compute elapsed from speechStartTime for spectator timer
-  const [elapsed, setElapsed] = useState(0);
-  useEffect(() => {
-    if (!speechStartTime || !activeSpeech) { setElapsed(0); return; }
-    const tick = () => setElapsed(Math.floor((Date.now() - speechStartTime) / 1000));
-    tick();
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
-  }, [speechStartTime, activeSpeech]);
 
   const sortedSeekers = sortPrec(
     (seekers || []).map(id => getStudent(id)).filter(Boolean),
