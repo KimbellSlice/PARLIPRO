@@ -14,6 +14,18 @@ const GOLD = "#D4A843";
 const IS = { width: "100%", padding: "10px 14px", background: "#2a2520", border: "1px solid #3a3530", borderRadius: 6, color: "#E8E0D0", fontSize: 14, fontFamily: "'Newsreader', Georgia, serif", outline: "none", boxSizing: "border-box" };
 const LS = { display: "block", fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" };
 
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.innerWidth < breakpoint : false);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 const Brand = ({ size = "large" }) => (
   <div style={{ textAlign: size === "large" ? "center" : "left" }}>
     <div style={{ fontSize: size === "large" ? 11 : 9, fontFamily: "'DM Mono', monospace", color: GOLD, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: size === "large" ? 4 : 0 }}>ParliPro</div>
@@ -25,11 +37,12 @@ function SpeechTimer({ onTick }) {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const ref = useRef(null);
+  const isMobile = useIsMobile();
   useEffect(() => { if (running) ref.current = setInterval(() => setElapsed(p => p + 1), 1000); else clearInterval(ref.current); return () => clearInterval(ref.current); }, [running]);
   useEffect(() => { if (onTick) onTick(elapsed); }, [elapsed]);
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <div style={{ fontSize: 38, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: elapsed > 180 ? "#C45A5A" : "#E8E0D0", letterSpacing: "0.05em", lineHeight: 1 }}>{fmtTime(elapsed)}</div>
+    <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" }}>
+      <div style={{ fontSize: isMobile ? 28 : 38, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: elapsed > 180 ? "#C45A5A" : "#E8E0D0", letterSpacing: "0.05em", lineHeight: 1 }}>{fmtTime(elapsed)}</div>
       <div style={{ display: "flex", gap: 6 }}>
         <button onClick={() => setRunning(r => !r)} style={{ padding: "6px 18px", background: running ? "#4A2D2D" : "#2D4A3E", color: running ? "#E8A0A0" : "#A0E8C0", border: running ? "1px solid #6B3A3A" : "1px solid #3A6B4E", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", minWidth: 72 }}>{running ? "Pause" : elapsed > 0 ? "Resume" : "Start"}</button>
         <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "6px 12px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Reset</button>
@@ -150,6 +163,7 @@ function SetupPhase({ onStart }) {
   const [poPin] = useState(generatePin);
   const nameRef = useRef(null);
   const billRef = useRef(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step]);
   useEffect(() => { if (step === "seating") { const ex = seatingSlots.filter(Boolean); setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null)); } }, [rows, cols]);
@@ -172,24 +186,24 @@ function SetupPhase({ onStart }) {
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: "0 16px 40px" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ textAlign: "center", padding: "40px 0 20px" }}>
+      <header style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
         <Brand size="large" />
-        <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: 16, background: "#2a2520", borderRadius: 8, padding: "8px 20px", border: "1px solid #3a3530" }}>
+        <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: isMobile ? 12 : 16, background: "#2a2520", borderRadius: 8, padding: isMobile ? "8px 14px" : "8px 20px", border: "1px solid #3a3530", flexWrap: "wrap", justifyContent: "center" }}>
           <div>
             <span style={{ fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace" }}>ROOM</span>
-            <span style={{ fontSize: 22, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: GOLD, letterSpacing: "0.15em", marginLeft: 8 }}>{roomCode}</span>
+            <span style={{ fontSize: isMobile ? 18 : 22, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: GOLD, letterSpacing: "0.15em", marginLeft: 8 }}>{roomCode}</span>
           </div>
-          <div style={{ borderLeft: "1px solid #3a3530", paddingLeft: 16 }}>
+          <div style={{ borderLeft: "1px solid #3a3530", paddingLeft: isMobile ? 12 : 16 }}>
             <span style={{ fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace" }}>PO PIN</span>
-            <span style={{ fontSize: 22, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: "#E8E0D0", letterSpacing: "0.15em", marginLeft: 8 }}>{poPin}</span>
+            <span style={{ fontSize: isMobile ? 18 : 22, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: "#E8E0D0", letterSpacing: "0.15em", marginLeft: 8 }}>{poPin}</span>
           </div>
         </div>
         <div style={{ marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>Save your PIN — use it to rejoin if you lose your session</div>
       </header>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div>
             <label style={LS}>Presiding Officer {check(hasPO)}</label>
             <input value={poName} onChange={e => setPoName(e.target.value)} placeholder="Your name" style={IS} />
@@ -282,19 +296,20 @@ function SetupPhase({ onStart }) {
 // ═══ SHARED DISPLAY COMPONENTS ═══
 function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle }) {
   const getStudent = (id) => students.find(s => s.id === id);
+  const isMobile = useIsMobile();
   return (
     <>
       {frontSide === "top" && <div style={{ textAlign: "center", padding: "4px 0 8px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", borderBottom: "1px solid #2a2520", marginBottom: 8 }}>▲ Front / PO</div>}
       <div style={{ display: "flex", alignItems: "stretch" }}>
         {frontSide === "left" && <div style={{ writingMode: "vertical-lr", textAlign: "center", padding: "8px 5px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", borderRight: "1px solid #2a2520", marginRight: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>◀ PO</div>}
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 7, maxWidth: cols * 125, flex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 5 : 7, maxWidth: isMobile ? "100%" : cols * 125, flex: 1 }}>
           {seatingSlots.map((student, idx) => {
-            if (!student) return <div key={idx} style={{ minHeight: 52, borderRadius: 7, border: "2px dashed #2a2520" }} />;
+            if (!student) return <div key={idx} style={{ minHeight: isMobile ? 44 : 52, borderRadius: 7, border: "2px dashed #2a2520" }} />;
             const s = getStudent(student.id); if (!s) return null;
             const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = !!activeSpeech && mode === "speech";
-            return (<div key={idx} onClick={() => interactive && !locked && onToggle?.(s.id)} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 7, padding: "9px 7px 7px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: 3 }}>{s.name}</div>
-              <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: 6 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
+            return (<div key={idx} onClick={() => interactive && !locked && onToggle?.(s.id)} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 7, padding: isMobile ? "6px 5px 5px" : "9px 7px 7px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1 }}>
+              <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 3 }}>{s.name}</div>
+              <div style={{ fontSize: isMobile ? 8 : 9, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 6 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
               {isSk && !isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#F0D78C", border: "2px solid #1a1714" }} />}
               {isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#5AE89A", border: "2px solid #1a1714" }} />}
             </div>);
@@ -308,6 +323,7 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
 }
 
 function OrdersTab({ docket, history, students, currentBillIdx, roundComplete }) {
+  const isMobile = useIsMobile();
   const totalSpeeches = history.filter(h => h.type === "speech").length;
   const totalQuestions = history.filter(h => h.type === "question").length;
   const totalSpeechTime = history.filter(h => h.type === "speech").reduce((a, h) => a + (h.duration || 0), 0);
@@ -316,7 +332,7 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete })
   const billsDebated = docket.filter(b => b.status).length;
   const studentStats = [...students].sort((a, b) => (b.speeches||0) - (a.speeches||0));
   return (
-    <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
+    <div style={{ flex: 1, padding: isMobile ? 16 : 24, overflow: "auto" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Orders of the Day</div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
@@ -452,6 +468,8 @@ function ActiveRound({ config, onCloseRoom }) {
   const docketInputRef = useRef(null);
   const [speechStartTime, setSpeechStartTime] = useState(restored?.speechStartTime || null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const isMobile = useIsMobile();
+  const [mobileShowQueue, setMobileShowQueue] = useState(false);
 
   // Undo stack: stores snapshots of state before each action
   const [undoStack, setUndoStack] = useState([]);
@@ -623,29 +641,29 @@ function ActiveRound({ config, onCloseRoom }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Brand size="small" />
-          <div style={{ borderLeft: "1px solid #3a3530", paddingLeft: 12 }}>
-            {!roundComplete && currentBill && (<div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px" }}>{currentBillIdx + 1}/{docket.length}</span>{currentBill.name}</div>)}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
+          {!isMobile && <Brand size="small" />}
+          <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
+            {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
-            <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>
+            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
+          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
+              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
+          {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
             <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
             <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
             <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 8 }}>PIN </span>
             <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
-          </div>
+          </div>}
           {undoStack.length > 0 && <button onClick={undo} style={{ padding: "5px 10px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>↩ Undo</button>}
-          <button onClick={() => setShowCloseConfirm(true)} style={{ padding: "5px 10px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Close Room</button>
+          <button onClick={() => setShowCloseConfirm(true)} style={{ padding: "5px 10px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Close</button>
         </div>
       </header>
 
@@ -664,9 +682,9 @@ function ActiveRound({ config, onCloseRoom }) {
       )}
 
       {activeTab === "main" && !roundComplete ? (
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: 1, overflow: "hidden" }}>
           <div style={{ flex: 1, overflow: "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "16px 20px" }}>
+            <div style={{ padding: isMobile ? "12px 12px" : "16px 20px" }}>
               {!activeSpeech && (<div style={{ display: "flex", gap: 0, marginBottom: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530", maxWidth: 320 }}>
                 {[{ key: "speech", label: `🎤 Speeches (${speechCounter})` }, { key: "question", label: `❓ Questions (${questionCounter})` }].map(t => (
                   <button key={t.key} onClick={() => { setMode(t.key); if (t.key === "speech") setSeekers([]); }} style={{ flex: 1, padding: "8px 0", background: mode === t.key ? GOLD : "transparent", color: mode === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: mode === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
@@ -676,15 +694,22 @@ function ActiveRound({ config, onCloseRoom }) {
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
               <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} />
             </div>
-            <div style={{ padding: "0 20px 16px", flexShrink: 0 }}>
-              {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}><div><div style={{ fontSize: 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 8 }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
-              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: "14px 20px", display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} onTick={e => { currentSpeechElapsed.current = e; }} /><button onClick={endSpeech} style={{ padding: "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: "auto" }}>End Speech → Questions</button></div>); })()}
-              {!activeSpeech && !pendingSpeaker && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span><button onClick={switchToSpeechMode} style={{ padding: "8px 18px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Next Speech →</button></div>)}
+            <div style={{ padding: isMobile ? "0 12px 12px" : "0 20px 16px", flexShrink: 0 }}>
+              {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
+              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} onTick={e => { currentSpeechElapsed.current = e; }} /><button onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Q</button></div>); })()}
+              {!activeSpeech && !pendingSpeaker && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span><button onClick={switchToSpeechMode} style={{ padding: "8px 18px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Next Speech →</button></div>)}
               {!activeSpeech && !pendingSpeaker && mode === "speech" && seekers.length === 0 && (<div style={{ padding: "8px 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>{nextInfo.needsChoice ? "Recognize a speaker to begin the first speech" : `Next: ${nextInfo.label}`}</div>)}
             </div>
+            {/* Mobile queue toggle button */}
+            {isMobile && (
+              <button onClick={() => setMobileShowQueue(q => !q)} style={{ margin: "0 12px 8px", padding: "10px", background: mobileShowQueue ? GOLD : "#2a2520", color: mobileShowQueue ? "#1a1714" : (mode === "speech" ? GOLD : "#7BA3BF"), border: `1px solid ${mobileShowQueue ? GOLD : "#3a3530"}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {mobileShowQueue ? "▼ Hide Queue" : `▲ ${mode === "speech" ? "Speech" : "Question"} Queue (${seekers.length})`}
+              </button>
+            )}
           </div>
-          {/* RIGHT QUEUE */}
-          <div style={{ width: 250, borderLeft: "1px solid #2a2520", padding: "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0 }}>
+          {/* RIGHT QUEUE - desktop always visible, mobile toggled */}
+          {(!isMobile || mobileShowQueue) && (
+          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0, maxHeight: isMobile ? "50vh" : undefined }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase" }}>{mode === "speech" ? "Speech" : "Question"} Queue</span>
               {seekers.length > 0 && !activeSpeech && <button onClick={() => setSeekers([])} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 4, padding: "2px 8px", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Clear</button>}
@@ -707,6 +732,7 @@ function ActiveRound({ config, onCloseRoom }) {
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && seekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
             {seekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}</div>)}
           </div>
+          )}
         </div>
       ) : activeTab === "main" && roundComplete ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
@@ -733,6 +759,8 @@ function SpectatorView({ roomCode }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
+  const isMobile = useIsMobile();
+  const [mobileShowQueue, setMobileShowQueue] = useState(false);
 
   useEffect(() => {
     const unsub = subscribeToRoom(roomCode, (data) => {
@@ -770,44 +798,53 @@ function SpectatorView({ roomCode }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <Brand size="small" />
-          <div style={{ borderLeft: "1px solid #3a3530", paddingLeft: 12 }}>
-            {!roundComplete && currentBill && (<div style={{ fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px" }}>{currentBillIdx + 1}/{docket.length}</span>{currentBill.name}</div>)}
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
+          {!isMobile && <Brand size="small" />}
+          <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
+            {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
-            <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>
+            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
+              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
-            <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
-            <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
+              <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
+              <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
+            </div>}
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", background: "#2a2520", borderRadius: 4, padding: "4px 8px", border: "1px solid #3a3530" }}>SPECTATOR</div>
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", background: "#2a2520", borderRadius: 4, padding: "4px 8px", border: "1px solid #3a3530" }}>SPECTATOR</div>
         </div>
       </header>
 
       {activeTab === "main" && !roundComplete ? (
-        <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: 1, overflow: "hidden" }}>
           <div style={{ flex: 1, overflow: "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "16px 20px" }}>
+            <div style={{ padding: isMobile ? "12px 12px" : "16px 20px" }}>
               {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
               {!activeSpeech && mode === "speech" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase", marginBottom: 12 }}>🎤 Awaiting speakers</div>}
               <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={seekers} activeSpeech={activeSpeech} mode={mode} interactive={false} />
             </div>
-            <div style={{ padding: "0 20px 16px", flexShrink: 0 }}>
-              {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: "14px 20px", display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpectatorTimer elapsed={elapsed} /></div>); })()}
+            <div style={{ padding: isMobile ? "0 12px 12px" : "0 20px 16px", flexShrink: 0 }}>
+              {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpectatorTimer elapsed={elapsed} /></div>); })()}
               {!activeSpeech && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span></div>)}
             </div>
+            {/* Mobile queue toggle */}
+            {isMobile && (
+              <button onClick={() => setMobileShowQueue(q => !q)} style={{ margin: "0 12px 8px", padding: "10px", background: mobileShowQueue ? GOLD : "#2a2520", color: mobileShowQueue ? "#1a1714" : (mode === "speech" ? GOLD : "#7BA3BF"), border: `1px solid ${mobileShowQueue ? GOLD : "#3a3530"}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {mobileShowQueue ? "▼ Hide Queue" : `▲ ${mode === "speech" ? "Speech" : "Question"} Queue`}
+              </button>
+            )}
           </div>
-          <div style={{ width: 250, borderLeft: "1px solid #2a2520", padding: "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0 }}>
+          {(!isMobile || mobileShowQueue) && (
+          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0, maxHeight: isMobile ? "50vh" : undefined }}>
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>{mode === "speech" ? "Speech" : "Question"} Queue</div>
             {sortedSeekers.length > 0 ? (<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div></div></div>); })}
@@ -817,6 +854,7 @@ function SpectatorView({ roomCode }) {
               {sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}
             </div>
           </div>
+          )}
         </div>
       ) : activeTab === "main" && roundComplete ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
