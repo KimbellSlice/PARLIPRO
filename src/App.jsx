@@ -140,7 +140,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.15em", textTransform: "uppercase" }}>or enter a room code</span>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
           </div>
-          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); }} onKeyDown={e => e.key === "Enter" && handleJoin()} placeholder="ROOM CODE" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
+          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); }} onKeyDown={e => e.key === "Enter" && handleJoin()} placeholder="ROOM CODE" aria-label="Room code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
 
           {showPinEntry ? (
             <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
@@ -212,7 +212,7 @@ function SetupPhase({ onStart }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
+      <header role="banner" style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
         <Brand size="large" />
         <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: isMobile ? 12 : 16, background: "#2a2520", borderRadius: 8, padding: isMobile ? "8px 14px" : "8px 20px", border: "1px solid #3a3530", flexWrap: "wrap", justifyContent: "center" }}>
           <div>
@@ -230,11 +230,11 @@ function SetupPhase({ onStart }) {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div>
             <label style={LS}>Presiding Officer {check(hasPO)}</label>
-            <input value={poName} onChange={e => setPoName(e.target.value)} placeholder="Your name" style={IS} />
+            <input value={poName} onChange={e => setPoName(e.target.value)} placeholder="Your name" aria-label="Presiding Officer name" style={IS} />
           </div>
           <div>
             <label style={LS}>Room Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
-            <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' style={IS} />
+            <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Room name" style={IS} />
           </div>
         </div>
         <div style={{ display: "flex", marginBottom: 24, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530" }}>
@@ -246,7 +246,7 @@ function SetupPhase({ onStart }) {
           <div style={{ marginBottom: 16 }}>
             <label style={LS}>Add Students ({students.length})</label>
             <div style={{ display: "flex", gap: 8 }}>
-              <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addStudent()} placeholder="Name, then Enter" style={{ ...IS, width: "auto", flex: 1 }} />
+              <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addStudent()} placeholder="Name, then Enter" aria-label="Student name" style={{ ...IS, width: "auto", flex: 1 }} />
               <button onClick={addStudent} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
             </div>
           </div>
@@ -289,7 +289,7 @@ function SetupPhase({ onStart }) {
           <div style={{ marginBottom: 16 }}>
             <label style={LS}>Add Legislation ({docket.length})</label>
             <div style={{ display: "flex", gap: 8 }}>
-              <input ref={billRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addBill()} placeholder="Bill name, then Enter" style={{ ...IS, width: "auto", flex: 1 }} />
+              <input ref={billRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addBill()} placeholder="Bill name, then Enter" aria-label="Bill name" style={{ ...IS, width: "auto", flex: 1 }} />
               <button onClick={addBill} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
             </div>
           </div>
@@ -327,12 +327,12 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
       {frontSide === "top" && <div style={{ textAlign: "center", padding: "4px 0 8px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", borderBottom: "1px solid #2a2520", marginBottom: 8 }}>▲ Front / PO</div>}
       <div style={{ display: "flex", alignItems: "stretch" }}>
         {frontSide === "left" && <div style={{ writingMode: "vertical-lr", textAlign: "center", padding: "8px 5px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", borderRight: "1px solid #2a2520", marginRight: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>◀ PO</div>}
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 5 : 10, maxWidth: isMobile ? "100%" : "100%", flex: 1 }}>
+        <div role="grid" aria-label="Seating chart" style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 5 : 10, maxWidth: isMobile ? "100%" : "100%", flex: 1 }}>
           {seatingSlots.map((student, idx) => {
-            if (!student) return <div key={idx} style={{ minHeight: isMobile ? 44 : 64, borderRadius: 8, border: "2px dashed #2a2520" }} />;
+            if (!student) return <div key={idx} role="gridcell" style={{ minHeight: isMobile ? 44 : 64, borderRadius: 8, border: "2px dashed #2a2520" }} />;
             const s = getStudent(student.id); if (!s) return null;
             const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = !!activeSpeech && mode === "speech";
-            return (<div key={idx} onClick={() => interactive && !locked && onToggle?.(s.id)} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1 }}>
+            return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1, outline: "none" }}>
               <div style={{ fontSize: isMobile ? 11 : 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 4 }}>{s.name}</div>
               <div style={{ fontSize: isMobile ? 8 : 10, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 8 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
               {isSk && !isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#F0D78C", border: "2px solid #1a1714" }} />}
@@ -347,7 +347,7 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
   );
 }
 
-function OrdersTab({ docket, history, students, currentBillIdx, roundComplete }) {
+function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, poName, roomName }) {
   const isMobile = useIsMobile();
   const totalSpeeches = history.filter(h => h.type === "speech").length;
   const totalQuestions = history.filter(h => h.type === "question").length;
@@ -356,22 +356,78 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete })
   const billsFailed = docket.filter(b => b.status === "failed").length;
   const billsDebated = docket.filter(b => b.status).length;
   const studentStats = [...students].sort((a, b) => (b.speeches||0) - (a.speeches||0));
+
+  const exportRecap = () => {
+    const now = new Date().toLocaleString();
+    const speechHistory = history.filter(h => h.type === "speech");
+    const questionHistory = history.filter(h => h.type === "question");
+    const billHistory = history.filter(h => h.type === "bill");
+    const html = `<!DOCTYPE html><html><head><title>ParliPro Session Recap</title><style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: Georgia, serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.5; }
+      h1 { font-size: 22px; margin-bottom: 4px; }
+      .meta { font-size: 12px; color: #666; margin-bottom: 24px; font-family: monospace; }
+      h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin: 24px 0 10px; font-family: monospace; font-weight: 600; }
+      .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+      .stat { flex: 1; background: #f5f3f0; border-radius: 8px; padding: 16px; text-align: center; }
+      .stat-val { font-size: 28px; font-weight: 600; font-family: monospace; }
+      .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: #888; margin-top: 4px; font-family: monospace; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+      th { text-align: left; padding: 8px 10px; border-bottom: 2px solid #ddd; font-family: monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #888; }
+      td { padding: 8px 10px; border-bottom: 1px solid #eee; }
+      .passed { color: #2a7d4f; font-weight: 600; }
+      .failed { color: #c44; font-weight: 600; }
+      .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 11px; color: #aaa; font-family: monospace; }
+      @media print { body { padding: 20px; } }
+    </style></head><body>
+      <h1>Session Recap</h1>
+      <div class="meta">${roomName ? roomName + " · " : ""}${poName ? "PO: " + poName + " · " : ""}${now}</div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val">${totalSpeeches}</div><div class="stat-label">Speeches</div></div>
+        <div class="stat"><div class="stat-val">${totalQuestions}</div><div class="stat-label">Questions</div></div>
+        <div class="stat"><div class="stat-val">${fmtTime(totalSpeechTime)}</div><div class="stat-label">Speech Time</div></div>
+      </div>
+      <h2>Docket — ${billsDebated}/${docket.length} Debated</h2>
+      <table><thead><tr><th>#</th><th>Bill</th><th>Result</th></tr></thead><tbody>
+        ${docket.map((b, i) => `<tr><td>${i + 1}</td><td>${b.name}</td><td class="${b.status || ''}">${b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}</td></tr>`).join("")}
+      </tbody></table>
+      <h2>Student Activity</h2>
+      <table><thead><tr><th>#</th><th>Name</th><th>Speeches</th><th>Questions</th></tr></thead><tbody>
+        ${studentStats.map((s, i) => `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.speeches||0}</td><td>${s.questions||0}</td></tr>`).join("")}
+      </tbody></table>
+      <h2>Speech Log</h2>
+      <table><thead><tr><th>#</th><th>Speaker</th><th>Side</th><th>Bill</th><th>Duration</th><th>Time</th></tr></thead><tbody>
+        ${speechHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${h.name}</td><td>${h.side || "—"}</td><td>${h.bill || "—"}</td><td>${h.duration != null ? fmtTime(h.duration) : "—"}</td><td>${new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("")}
+      </tbody></table>
+      ${questionHistory.length > 0 ? `<h2>Question Log</h2>
+      <table><thead><tr><th>#</th><th>Questioner</th><th>Bill</th><th>Time</th></tr></thead><tbody>
+        ${questionHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${h.name}</td><td>${h.bill || "—"}</td><td>${new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("")}
+      </tbody></table>` : ""}
+      <div class="footer">Generated by ParliPro · ${now}</div>
+    </body></html>`;
+    const w = window.open("", "_blank");
+    if (w) { w.document.write(html); w.document.close(); }
+  };
+
   return (
-    <div style={{ flex: 1, padding: isMobile ? 16 : 24, overflow: "auto" }}>
+    <div role="region" aria-label="Orders of the Day" style={{ flex: 1, padding: isMobile ? 16 : 24, overflow: "auto" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Orders of the Day</div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>Orders of the Day</div>
+          <button onClick={exportRecap} aria-label="Export session recap" style={{ padding: "6px 14px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", textTransform: "uppercase" }}>Export Recap ↗</button>
+        </div>
+        <div role="list" aria-label="Session statistics" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
           {[{ l: "Speeches", v: totalSpeeches, c: GOLD }, { l: "Questions", v: totalQuestions, c: "#7BA3BF" }, { l: "Speech Time", v: fmtTime(totalSpeechTime), c: "#E8E0D0" }].map(c => (
-            <div key={c.l} style={{ background: "#2a2520", borderRadius: 8, padding: 16, border: "1px solid #3a3530", textAlign: "center" }}><div style={{ fontSize: 28, fontWeight: 600, color: c.c, fontFamily: "'DM Mono', monospace" }}>{c.v}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>{c.l}</div></div>
+            <div key={c.l} role="listitem" style={{ background: "#2a2520", borderRadius: 8, padding: 16, border: "1px solid #3a3530", textAlign: "center" }}><div aria-label={`${c.l}: ${c.v}`} style={{ fontSize: 28, fontWeight: 600, color: c.c, fontFamily: "'DM Mono', monospace" }}>{c.v}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 4, letterSpacing: "0.08em", textTransform: "uppercase" }}>{c.l}</div></div>
           ))}
         </div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Docket — {billsDebated}/{docket.length} debated ({billsPassed} passed, {billsFailed} failed)</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24 }}>
-          {docket.map((b, i) => (<div key={b.id || i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{i + 1}.</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: b.status || i === currentBillIdx ? "#E8E0D0" : "#6b6358" }}>{b.name}</span>{b.status ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span> : i === currentBillIdx && !roundComplete ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>IN DEBATE</span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Pending</span>}</div>))}
+        <div role="list" aria-label="Docket" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24 }}>
+          {docket.map((b, i) => (<div key={b.id || i} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{i + 1}.</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: b.status || i === currentBillIdx ? "#E8E0D0" : "#6b6358" }}>{b.name}</span>{b.status ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span> : i === currentBillIdx && !roundComplete ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>IN DEBATE</span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Pending</span>}</div>))}
         </div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Student Activity</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {studentStats.map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "#2a2520", borderRadius: 6, border: "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>🎤 {s.speeches||0}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#7BA3BF" }}>❓ {s.questions||0}</span></div>))}
+        <div role="list" aria-label="Student activity" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {studentStats.map((s, idx) => (<div key={s.id} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "#2a2520", borderRadius: 6, border: "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{s.name}</span><span aria-label={`${s.speeches||0} speeches`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>🎤 {s.speeches||0}</span><span aria-label={`${s.questions||0} questions`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#7BA3BF" }}>❓ {s.questions||0}</span></div>))}
         </div>
       </div>
     </div>
@@ -380,12 +436,12 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete })
 
 function LogTab({ history }) {
   return (
-    <div style={{ flex: 1, padding: "20px 24px", maxWidth: 600, margin: "0 auto", overflow: "auto" }}>
+    <div role="region" aria-label="Activity log" style={{ flex: 1, padding: "20px 24px", maxWidth: 600, margin: "0 auto", overflow: "auto" }}>
       <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 16 }}>Round Activity Log</div>
       {history.length === 0 ? <div style={{ textAlign: "center", padding: 40, color: "#6b6358", fontStyle: "italic" }}>No activity yet.</div> : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div role="list" aria-label="Activity entries" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {history.map((entry, idx) => (
-            <div key={idx} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#2a2520", borderRadius: 6, borderLeft: `3px solid ${entry.type === "speech" ? GOLD : entry.type === "question" ? "#7BA3BF" : "#5AE89A"}` }}>
+            <div key={idx} role="listitem" aria-label={`${entry.type}: ${entry.name}${entry.side ? ", " + entry.side : ""}${entry.status ? ", " + entry.status : ""}`} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", background: "#2a2520", borderRadius: 6, borderLeft: `3px solid ${entry.type === "speech" ? GOLD : entry.type === "question" ? "#7BA3BF" : "#5AE89A"}` }}>
               <span style={{ fontSize: 16 }}>{entry.type === "speech" ? "🎤" : entry.type === "question" ? "❓" : "📜"}</span>
               <span style={{ flex: 1, fontSize: 13 }}>
                 <strong>{entry.name}</strong>
@@ -408,7 +464,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>{editable ? "Edit Docket" : "Docket"}</div>
-        {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
+        {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." aria-label="Add bill name" style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; return (
             <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
@@ -438,7 +494,7 @@ function RosterTab({ students, onRename, onAdd }) {
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>Edit Roster</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <input value={addInput} onChange={e => setAddInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} placeholder="Add new student..." style={{ flex: 1, ...IS }} />
+          <input value={addInput} onChange={e => setAddInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} placeholder="Add new student..." aria-label="Add student name" style={{ flex: 1, ...IS }} />
           <button onClick={handleAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
         </div>
         <p style={{ fontSize: 11, color: "#9B917F", fontStyle: "italic", marginBottom: 12, fontFamily: "'DM Mono', monospace" }}>Tap a name to edit it.</p>
@@ -673,7 +729,7 @@ function ActiveRound({ config, onCloseRoom }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -683,9 +739,9 @@ function ActiveRound({ config, onCloseRoom }) {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
-          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
+          <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
+              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
           {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
@@ -740,7 +796,7 @@ function ActiveRound({ config, onCloseRoom }) {
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
-              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} onTick={e => { currentSpeechElapsed.current = e; }} /><button onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Q</button></div>); })()}
+              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} onTick={e => { currentSpeechElapsed.current = e; }} /><button aria-label="End speech and start questions" onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Q</button></div>); })()}
               {!activeSpeech && !pendingSpeaker && mode === "question" && inQuestionPeriod && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span>
                 <button onClick={() => { pushUndo(); switchToSpeechMode(); }} style={{ padding: "8px 18px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Next Speech →</button>
@@ -774,7 +830,7 @@ function ActiveRound({ config, onCloseRoom }) {
               <button onClick={() => setShowPQConfirm(false)} style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 0", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Cancel</button>
             </div>)}
             {sortedSeekers.length > 0 && (<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Ask</button>}<button onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
+              {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && activeSeekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
             {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}</div>)}
@@ -789,7 +845,7 @@ function ActiveRound({ config, onCloseRoom }) {
           </div>
         </div>
       ) : activeTab === "orders" ? (
-        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} />
+        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : activeTab === "docket" ? (
         <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} />
       ) : activeTab === "roster" ? (
@@ -846,7 +902,7 @@ function SpectatorView({ roomCode }) {
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -858,7 +914,7 @@ function SpectatorView({ roomCode }) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
+              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -907,7 +963,7 @@ function SpectatorView({ roomCode }) {
       ) : activeTab === "main" && roundComplete ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
       ) : activeTab === "orders" ? (
-        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} />
+        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : activeTab === "docket" ? (
         <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} />
       ) : (
@@ -927,7 +983,8 @@ export default function App() {
   // Global animations
   useEffect(() => {
     const style = document.createElement("style");
-    style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`;
+    style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+    *:focus-visible { outline: 2px solid #D4A843 !important; outline-offset: 2px; }`;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
