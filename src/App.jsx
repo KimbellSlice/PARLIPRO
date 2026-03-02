@@ -32,6 +32,23 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 
+function useProfanityToast() {
+  const [visible, setVisible] = useState(false);
+  const timerRef = useRef(null);
+  const trigger = () => {
+    setVisible(true);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setVisible(false), 2000);
+  };
+  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  const Toast = visible ? (
+    <div style={{ position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 8, padding: "8px 16px", fontFamily: "'DM Mono', monospace", fontSize: 11, zIndex: 9999, animation: "profanityFadeIn 0.15s ease-out", pointerEvents: "none" }}>
+      Please use appropriate language
+    </div>
+  ) : null;
+  return { trigger, Toast };
+}
+
 const Brand = ({ size = "large" }) => (
   <div style={{ textAlign: size === "large" ? "center" : "left" }}>
     <div style={{ fontSize: size === "large" ? 11 : 9, fontFamily: "'DM Mono', monospace", color: GOLD, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: size === "large" ? 4 : 0 }}>ParliPro</div>
@@ -154,6 +171,7 @@ function SetupPhase({ onStart }) {
   const [poName, setPoName] = useState("");
   const [roomName, setRoomName] = useState("");
   const [nameInput, setNameInput] = useState("");
+  const profanity = useProfanityToast();
   const [students, setStudents] = useState([]);
   const [billInput, setBillInput] = useState("");
   const [docket, setDocket] = useState([]);
@@ -174,10 +192,10 @@ function SetupPhase({ onStart }) {
   useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step]);
   useEffect(() => { if (step === "seating") { const ex = seatingSlots.filter(Boolean); setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null)); } }, [rows, cols]);
 
-  const addStudent = () => { const n = sanitizeInput(nameInput.trim()); if (!n || students.some(s => s.name.toLowerCase() === n.toLowerCase())) return; if (containsProfanity(n)) { alert("Please use appropriate language."); return; } setStudents(p => [...p, { id: Date.now() + Math.random(), name: n, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: p.length }]); setNameInput(""); setSeatingDirty(false); nameRef.current?.focus(); };
+  const addStudent = () => { const n = sanitizeInput(nameInput.trim()); if (!n || students.some(s => s.name.toLowerCase() === n.toLowerCase())) return; if (containsProfanity(n)) { setNameInput(""); profanity.trigger(); return; } setStudents(p => [...p, { id: Date.now() + Math.random(), name: n, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: p.length }]); setNameInput(""); setSeatingDirty(false); nameRef.current?.focus(); };
   const removeStudent = (id) => { setStudents(p => p.filter(s => s.id !== id).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const randomize = () => { setStudents(p => shuffle(p).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
-  const addBill = () => { const n = sanitizeInput(billInput.trim()); if (!n) return; if (containsProfanity(n)) { alert("Please use appropriate language."); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setBillInput(""); billRef.current?.focus(); };
+  const addBill = () => { const n = sanitizeInput(billInput.trim()); if (!n) return; if (containsProfanity(n)) { setBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setBillInput(""); billRef.current?.focus(); };
   const removeBill = (id) => setDocket(p => p.filter(b => b.id !== id));
   const moveBill = (idx, dir) => { const ns = [...docket]; const [item] = ns.splice(idx, 1); ns.splice(idx + dir, 0, item); setDocket(ns); };
   const handleDragStart = (idx) => setDragIdx(idx);
@@ -291,10 +309,11 @@ function SetupPhase({ onStart }) {
           </div>
           {docket.length === 0 && <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least one bill.</div>}
         </>)}
-        <button disabled={!canStart} onClick={() => { if (containsProfanity(poName) || containsProfanity(roomName)) { alert("Please use appropriate language."); return; } onStart({ students: seatingSlots.filter(Boolean), seatingSlots, cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <button disabled={!canStart} onClick={() => { if (containsProfanity(poName)) { setPoName(""); profanity.trigger(); return; } if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } onStart({ students: seatingSlots.filter(Boolean), seatingSlots, cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           {canStart ? "Begin Round →" : `Complete setup (${[!hasPO && "PO Name", !hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
         </button>
       </div>
+      {profanity.Toast}
     </div>
   );
 }
@@ -410,9 +429,10 @@ function RosterTab({ students, onRename, onAdd }) {
   const [editId, setEditId] = useState(null);
   const [editName, setEditName] = useState("");
   const [addInput, setAddInput] = useState("");
+  const profanity = useProfanityToast();
   const startEdit = (s) => { setEditId(s.id); setEditName(s.name); };
-  const saveEdit = () => { const n = sanitizeInput(editName.trim()); if (n) { if (containsProfanity(n)) { alert("Please use appropriate language."); return; } onRename(editId, n); } setEditId(null); setEditName(""); };
-  const handleAdd = () => { const n = sanitizeInput(addInput.trim()); if (!n) return; if (containsProfanity(n)) { alert("Please use appropriate language."); return; } onAdd(n); setAddInput(""); };
+  const saveEdit = () => { const n = sanitizeInput(editName.trim()); if (n) { if (containsProfanity(n)) { setEditName(""); profanity.trigger(); return; } onRename(editId, n); } setEditId(null); setEditName(""); };
+  const handleAdd = () => { const n = sanitizeInput(addInput.trim()); if (!n) return; if (containsProfanity(n)) { setAddInput(""); profanity.trigger(); return; } onAdd(n); setAddInput(""); };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
@@ -435,6 +455,7 @@ function RosterTab({ students, onRename, onAdd }) {
           ))}
         </div>
       </div>
+      {profanity.Toast}
     </div>
   );
 }
@@ -479,6 +500,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const [showNextSpeechConfirm, setShowNextSpeechConfirm] = useState(false);
   const [inQuestionPeriod, setInQuestionPeriod] = useState(restored?.inQuestionPeriod || false);
   const [savedSpeechSeekers, setSavedSpeechSeekers] = useState([]);
+  const profanity = useProfanityToast();
 
   // Undo stack: stores snapshots of state before each action
   const [undoStack, setUndoStack] = useState([]);
@@ -619,7 +641,7 @@ function ActiveRound({ config, onCloseRoom }) {
     if (nextIdx >= docket.length) setActiveTab("orders");
   };
 
-  const addBillLive = () => { const n = sanitizeInput(docketBillInput.trim()); if (!n) return; if (containsProfanity(n)) { alert("Please use appropriate language."); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setDocketBillInput(""); };
+  const addBillLive = () => { const n = sanitizeInput(docketBillInput.trim()); if (!n) return; if (containsProfanity(n)) { setDocketBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setDocketBillInput(""); };
   const removeBillLive = (id) => { const idx = docket.findIndex(b => b.id === id); if (idx <= currentBillIdx) return; setDocket(p => p.filter(b => b.id !== id)); };
   const moveBillLive = (idx, dir) => { if (idx <= currentBillIdx) return; const ns = [...docket]; const [item] = ns.splice(idx, 1); ns.splice(idx + dir, 0, item); setDocket(ns); };
 
@@ -775,6 +797,7 @@ function ActiveRound({ config, onCloseRoom }) {
       ) : (
         <LogTab history={history} />
       )}
+      {profanity.Toast}
     </div>
   );
 }
@@ -900,6 +923,14 @@ export default function App() {
   const [config, setConfig] = useState(null);
   const [spectatorCode, setSpectatorCode] = useState(null);
   const isMobile = useIsMobile();
+
+  // Global animations
+  useEffect(() => {
+    const style = document.createElement("style");
+    style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }`;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, []);
 
   // Force scrollability on mobile
   useEffect(() => {
