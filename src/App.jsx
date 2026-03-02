@@ -51,8 +51,14 @@ function useProfanityToast() {
 
 const Brand = ({ size = "large" }) => (
   <div style={{ textAlign: size === "large" ? "center" : "left" }}>
-    <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: size === "large" ? 120 : 44, display: size === "large" ? "block" : "inline-block", margin: size === "large" ? "0 auto 8px" : 0 }} />
-    {size === "large" && <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Precedence Tracking</h1>}
+    {size === "large" ? (
+      <>
+        <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: 120, display: "block", margin: "0 auto 8px" }} />
+        <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Precedence Tracking</h1>
+      </>
+    ) : (
+      <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: GOLD, letterSpacing: "0.25em", textTransform: "uppercase" }}>ParliPro</div>
+    )}
   </div>
 );
 
@@ -389,9 +395,15 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
       .passed { color: #2a7d4f; font-weight: 600; }
       .failed { color: #c44; font-weight: 600; }
       .footer { margin-top: 32px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 11px; color: #aaa; font-family: monospace; }
+      .logo-header { text-align: center; margin-bottom: 24px; }
+      .logo-header img { height: 80px; margin-bottom: 8px; }
+      .logo-header h1 { font-size: 22px; margin: 0; }
       @media print { body { padding: 20px; } }
     </style></head><body>
-      <h1>Session Recap</h1>
+      <div class="logo-header">
+        <img src="/PARLIPRO.png" alt="ParliPro" />
+        <h1>Session Recap</h1>
+      </div>
       <div class="meta">${roomName ? roomName + " · " : ""}${poName ? "PO: " + poName + " · " : ""}${now}</div>
       <div class="stats">
         <div class="stat"><div class="stat-val">${totalSpeeches}</div><div class="stat-label">Speeches</div></div>
@@ -423,8 +435,11 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
   return (
     <div role="region" aria-label="Orders of the Day" style={{ flex: 1, padding: isMobile ? 16 : 24, overflow: "auto" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+        <div style={{ textAlign: "center", marginBottom: 20 }}>
+          <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: 80, display: "block", margin: "0 auto 12px" }} />
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>Orders of the Day</div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
           <button onClick={exportRecap} aria-label="Export session recap" style={{ padding: "6px 14px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", textTransform: "uppercase" }}>Export Recap ↗</button>
         </div>
         <div role="list" aria-label="Session statistics" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 24 }}>
