@@ -494,9 +494,10 @@ function ActiveRound({ config, onCloseRoom }) {
       activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
       speechStartTime: speechStartTime || null,
       speechElapsed: currentSpeechElapsed.current || 0,
+      affCount, negCount, speechSequence,
     };
     writeRoomState(roomCode, state).catch(console.error);
-  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, roomCode]);
+  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, roomCode]);
 
   useEffect(() => { syncToFirebase(); }, [syncToFirebase]);
 
