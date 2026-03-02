@@ -302,12 +302,12 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
       {frontSide === "top" && <div style={{ textAlign: "center", padding: "4px 0 8px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", borderBottom: "1px solid #2a2520", marginBottom: 8 }}>▲ Front / PO</div>}
       <div style={{ display: "flex", alignItems: "stretch" }}>
         {frontSide === "left" && <div style={{ writingMode: "vertical-lr", textAlign: "center", padding: "8px 5px", color: GOLD, fontSize: 10, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.12em", textTransform: "uppercase", borderRight: "1px solid #2a2520", marginRight: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>◀ PO</div>}
-        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 5 : 7, maxWidth: isMobile ? "100%" : cols * 125, flex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: isMobile ? 5 : 7, maxWidth: isMobile ? "100%" : cols * 125, flex: 1, touchAction: "pan-y" }}>
           {seatingSlots.map((student, idx) => {
             if (!student) return <div key={idx} style={{ minHeight: isMobile ? 44 : 52, borderRadius: 7, border: "2px dashed #2a2520" }} />;
             const s = getStudent(student.id); if (!s) return null;
             const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = !!activeSpeech && mode === "speech";
-            return (<div key={idx} onClick={() => interactive && !locked && onToggle?.(s.id)} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 7, padding: isMobile ? "6px 5px 5px" : "9px 7px 7px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1 }}>
+            return (<div key={idx} onClick={() => interactive && !locked && onToggle?.(s.id)} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 7, padding: isMobile ? "6px 5px 5px" : "9px 7px 7px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1, touchAction: "manipulation" }}>
               <div style={{ fontSize: isMobile ? 11 : 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 3 }}>{s.name}</div>
               <div style={{ fontSize: isMobile ? 8 : 9, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 6 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
               {isSk && !isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#F0D78C", border: "2px solid #1a1714" }} />}
@@ -639,7 +639,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: isMobile ? "auto" : "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: isMobile ? "auto" : "100vh", touchAction: "pan-y", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
@@ -796,7 +796,7 @@ function SpectatorView({ roomCode }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: isMobile ? "auto" : "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: isMobile ? "auto" : "100vh", touchAction: "pan-y", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
@@ -888,6 +888,16 @@ export default function App() {
         overflow-x: hidden !important;
         -webkit-overflow-scrolling: touch !important;
         position: relative !important;
+        touch-action: pan-y !important;
+      }
+      * {
+        -webkit-overflow-scrolling: touch;
+      }
+      button, [role="button"], a, input, select, textarea, [onclick] {
+        touch-action: manipulation !important;
+      }
+      div {
+        touch-action: pan-y !important;
       }
     `;
     document.head.appendChild(style);
