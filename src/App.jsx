@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat } from "./firebase.js";
+import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -839,6 +839,9 @@ export default function App() {
 
   // Restore PO session on refresh
   useEffect(() => {
+    // Clean up any rooms older than 24 hours
+    cleanupStaleRooms();
+
     try {
       const saved = sessionStorage.getItem('parlipro-session');
       if (saved) {

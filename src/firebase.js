@@ -65,3 +65,19 @@ export function updateRoomElapsed(roomCode, elapsed) {
 export function updateHeartbeat(roomCode) {
   return update(ref(db, `rooms/${roomCode}`), { poHeartbeat: Date.now() });
 }
+
+// Clean up rooms not updated in the last 24 hours
+export function cleanupStaleRooms() {
+  const roomsRef = ref(db, 'rooms');
+  onValue(roomsRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+    Object.keys(data).forEach(code => {
+      const room = data[code];
+      if (room.updatedAt && room.updatedAt < cutoff) {
+        remove(ref(db, `rooms/${code}`)).catch(console.error);
+      }
+    });
+  }, { onlyOnce: true });
+}
