@@ -639,7 +639,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column", overflow: isMobile ? "auto" : undefined }}>
+    <div style={{ minHeight: isMobile ? "auto" : "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
@@ -796,7 +796,7 @@ function SpectatorView({ roomCode }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column", overflow: isMobile ? "auto" : undefined }}>
+    <div style={{ minHeight: isMobile ? "auto" : "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
@@ -874,6 +874,25 @@ export default function App() {
   const [view, setView] = useState("landing");
   const [config, setConfig] = useState(null);
   const [spectatorCode, setSpectatorCode] = useState(null);
+  const isMobile = useIsMobile();
+
+  // Force scrollability on mobile by overriding any host-level overflow:hidden
+  useEffect(() => {
+    if (!isMobile) return;
+    const style = document.createElement("style");
+    style.textContent = `
+      html, body, #root, #__next {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        position: relative !important;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => { document.head.removeChild(style); };
+  }, [isMobile]);
 
   // Restore PO session on refresh
   useEffect(() => {
