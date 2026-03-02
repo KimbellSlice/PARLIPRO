@@ -252,6 +252,7 @@ function SetupPhase({ onStart }) {
             </div>
           </div>
           {students.length > 1 && <button onClick={randomize} style={{ padding: "7px 16px", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", marginBottom: 16 }}>↻ Randomize Order</button>}
+          {students.length > 0 && <p style={{ fontSize: 11, color: "#9B917F", fontStyle: "italic", marginBottom: 10, fontFamily: "'DM Mono', monospace" }}>Order reflects starting speech precedence. Drag to reorder.</p>}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {students.map((s, idx) => (
               <div key={s.id} draggable onDragStart={() => handleDragStart(idx)} onDragOver={e => handleDragOver(e, idx)} onDragEnd={() => setDragIdx(null)} style={{ display: "flex", alignItems: "center", gap: 8, cursor: "grab" }}>
