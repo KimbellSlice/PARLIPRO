@@ -639,9 +639,9 @@ function ActiveRound({ config, onCloseRoom }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column", overflow: isMobile ? "auto" : undefined }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -682,8 +682,8 @@ function ActiveRound({ config, onCloseRoom }) {
       )}
 
       {activeTab === "main" && !roundComplete ? (
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: 1, overflow: "hidden" }}>
-          <div style={{ flex: 1, overflow: "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "hidden" }}>
+          <div style={{ flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ padding: isMobile ? "12px 12px" : "16px 20px" }}>
               {!activeSpeech && (<div style={{ display: "flex", gap: 0, marginBottom: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530", maxWidth: 320 }}>
                 {[{ key: "speech", label: `🎤 Speeches (${speechCounter})` }, { key: "question", label: `❓ Questions (${questionCounter})` }].map(t => (
@@ -709,7 +709,7 @@ function ActiveRound({ config, onCloseRoom }) {
           </div>
           {/* RIGHT QUEUE - desktop always visible, mobile toggled */}
           {(!isMobile || mobileShowQueue) && (
-          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0, maxHeight: isMobile ? "50vh" : undefined }}>
+          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: isMobile ? "visible" : "auto", flexShrink: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase" }}>{mode === "speech" ? "Speech" : "Question"} Queue</span>
               {seekers.length > 0 && !activeSpeech && <button onClick={() => setSeekers([])} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 4, padding: "2px 8px", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Clear</button>}
@@ -730,7 +730,7 @@ function ActiveRound({ config, onCloseRoom }) {
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Recognize</button>}{isTop && !activeSpeech && mode === "question" && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Ask</button>}<button onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && seekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
-            {seekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}</div>)}
+            {seekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}</div>)}
           </div>
           )}
         </div>
@@ -796,9 +796,9 @@ function SpectatorView({ roomCode }) {
   const displayName = roomName || `Room ${roomCode}`;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", flexDirection: "column", overflow: isMobile ? "auto" : undefined }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0 }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -824,8 +824,8 @@ function SpectatorView({ roomCode }) {
       </header>
 
       {activeTab === "main" && !roundComplete ? (
-        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: 1, overflow: "hidden" }}>
-          <div style={{ flex: 1, overflow: "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "hidden" }}>
+          <div style={{ flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "auto", minWidth: 0, display: "flex", flexDirection: "column" }}>
             <div style={{ padding: isMobile ? "12px 12px" : "16px 20px" }}>
               {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
@@ -844,12 +844,12 @@ function SpectatorView({ roomCode }) {
             )}
           </div>
           {(!isMobile || mobileShowQueue) && (
-          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: "auto", flexShrink: 0, maxHeight: isMobile ? "50vh" : undefined }}>
+          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: isMobile ? "visible" : "auto", flexShrink: 0 }}>
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>{mode === "speech" ? "Speech" : "Question"} Queue</div>
             {sortedSeekers.length > 0 ? (<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div></div></div>); })}
             </div>) : (<div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : "Waiting for speakers"}</div>)}
-            <div style={{ marginTop: "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}>
+            <div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
               {sortPrec(students, mode).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}
             </div>
