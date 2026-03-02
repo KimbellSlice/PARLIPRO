@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, onValue, remove } from 'firebase/database';
+import { getDatabase, onValue, ref, remove, set, update } from 'firebase/database';
 
+// ⚠️ REPLACE THIS with your real Firebase config from the Firebase Console
+// See FIREBASE_SETUP.md for instructions
 const firebaseConfig = {
   apiKey: "AIzaSyDEeij30fHJwxK5BQRbo2xMCECmp1dNkO4",
   authDomain: "parlipro-fd42b.firebaseapp.com",
@@ -44,4 +46,9 @@ export function checkRoomExists(roomCode, callback) {
 // Delete a room
 export function deleteRoom(roomCode) {
   return remove(ref(db, `rooms/${roomCode}`));
+}
+
+// Update just the speech elapsed time (lightweight, called every second)
+export function updateRoomElapsed(roomCode, elapsed) {
+  return update(ref(db, `rooms/${roomCode}`), { speechElapsed: elapsed, updatedAt: Date.now() });
 }

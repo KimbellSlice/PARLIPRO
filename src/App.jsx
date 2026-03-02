@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom } from "./firebase.js";
+import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
@@ -16,7 +16,7 @@ const LS = { display: "block", fontSize: 11, color: "#9B917F", fontFamily: "'DM 
 const Brand = ({ size = "large" }) => (
   <div style={{ textAlign: size === "large" ? "center" : "left" }}>
     <div style={{ fontSize: size === "large" ? 11 : 9, fontFamily: "'DM Mono', monospace", color: GOLD, letterSpacing: "0.25em", textTransform: "uppercase", marginBottom: size === "large" ? 4 : 0 }}>ParliPro</div>
-    {size === "large" && <h1 style={{ fontSize: 34, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Precedence Tracker</h1>}
+    {size === "large" && <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Precedence Tracking</h1>}
   </div>
 );
 
@@ -57,8 +57,7 @@ function LandingPage({ onCreateRoom, onJoinRoom }) {
       <link href={FONTS_LINK} rel="stylesheet" />
       <div style={{ maxWidth: 440, width: "100%", textAlign: "center" }}>
         <Brand size="large" />
-        <p style={{ color: "#9B917F", fontSize: 15, marginTop: 12, marginBottom: 40 }}>Congressional Debate Precedence Tracking</p>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 32 }}>
           <button onClick={onCreateRoom} style={{ width: "100%", padding: "18px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 10, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" }}>Create Room (PO)</button>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0" }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
@@ -422,11 +421,21 @@ function ActiveRound({ config, onCloseRoom }) {
       history: history.map(h => ({ ...h, time: typeof h.time === 'object' ? h.time.getTime() : h.time })),
       activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
       speechStartTime: speechStartTime || null,
+      speechElapsed: currentSpeechElapsed.current || 0,
     };
     writeRoomState(roomCode, state).catch(console.error);
   }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, roomCode]);
 
   useEffect(() => { syncToFirebase(); }, [syncToFirebase]);
+
+  // Sync elapsed timer to Firebase every second during speech
+  useEffect(() => {
+    if (!activeSpeech) return;
+    const iv = setInterval(() => {
+      updateRoomElapsed(roomCode, currentSpeechElapsed.current).catch(console.error);
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [activeSpeech, roomCode]);
 
   // Session persistence
   useEffect(() => {
@@ -640,7 +649,6 @@ function SpectatorView({ roomCode }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const unsub = subscribeToRoom(roomCode, (data) => {
@@ -650,16 +658,8 @@ function SpectatorView({ roomCode }) {
     return unsub;
   }, [roomCode]);
 
-  const activeSpeechFromState = state?.activeSpeech || null;
-  const speechStartFromState = state?.speechStartTime || null;
-
-  useEffect(() => {
-    if (!speechStartFromState || !activeSpeechFromState) { setElapsed(0); return; }
-    const tick = () => setElapsed(Math.floor((Date.now() - speechStartFromState) / 1000));
-    tick();
-    const iv = setInterval(tick, 1000);
-    return () => clearInterval(iv);
-  }, [speechStartFromState, activeSpeechFromState]);
+  // Timer comes directly from PO via Firebase
+  const elapsed = state?.activeSpeech ? (state?.speechElapsed || 0) : 0;
 
   if (!state) {
     return (
