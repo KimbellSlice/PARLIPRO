@@ -54,7 +54,7 @@ const Brand = ({ size = "large" }) => (
     {size === "large" ? (
       <>
         <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: 120, display: "block", margin: "0 auto 8px" }} />
-        <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Precedence Tracking</h1>
+        <h1 style={{ fontSize: 28, fontWeight: 300, margin: 0, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>Congressional Debate<br/>Parliamentary Tool</h1>
       </>
     ) : (
       <div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: GOLD, letterSpacing: "0.25em", textTransform: "uppercase" }}>ParliPro</div>
