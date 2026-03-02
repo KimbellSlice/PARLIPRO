@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce } from "./firebase.js";
+import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -70,6 +70,11 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
       setChecking(false);
       if (!data) { setJoinError("Room not found."); return; }
       if (!data.poPin) { setJoinError("This room has no PO PIN set."); return; }
+      // Check if another PO session is active (heartbeat within last 15 seconds)
+      if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < 15000) {
+        setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
+        return;
+      }
       setPendingCode(code);
       setShowPinEntry(true);
     });
@@ -494,6 +499,15 @@ function ActiveRound({ config, onCloseRoom }) {
   }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, roomCode]);
 
   useEffect(() => { syncToFirebase(); }, [syncToFirebase]);
+
+  // PO heartbeat — proves this session is active (every 5 seconds)
+  useEffect(() => {
+    updateHeartbeat(roomCode).catch(console.error);
+    const iv = setInterval(() => {
+      updateHeartbeat(roomCode).catch(console.error);
+    }, 5000);
+    return () => clearInterval(iv);
+  }, [roomCode]);
 
   // Sync elapsed timer to Firebase every second during speech
   useEffect(() => {

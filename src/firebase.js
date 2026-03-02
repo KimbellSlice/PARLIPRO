@@ -60,3 +60,8 @@ export function deleteRoom(roomCode) {
 export function updateRoomElapsed(roomCode, elapsed) {
   return update(ref(db, `rooms/${roomCode}`), { speechElapsed: elapsed, updatedAt: Date.now() });
 }
+
+// Update PO heartbeat (called every few seconds by active PO)
+export function updateHeartbeat(roomCode) {
+  return update(ref(db, `rooms/${roomCode}`), { poHeartbeat: Date.now() });
+}
