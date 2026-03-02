@@ -43,6 +43,14 @@ export function checkRoomExists(roomCode, callback) {
   }, { onlyOnce: true });
 }
 
+// Get room data once (for PO rejoin)
+export function getRoomOnce(roomCode, callback) {
+  const roomRef = ref(db, `rooms/${roomCode}`);
+  onValue(roomRef, (snapshot) => {
+    callback(snapshot.val());
+  }, { onlyOnce: true });
+}
+
 // Delete a room
 export function deleteRoom(roomCode) {
   return remove(ref(db, `rooms/${roomCode}`));
