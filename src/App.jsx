@@ -62,14 +62,14 @@ const Brand = ({ size = "large" }) => (
   </div>
 );
 
-function SpeechTimer({ onTick, speechStartTime, isRestore }) {
-  const initialElapsed = isRestore && speechStartTime ? Math.floor((Date.now() - speechStartTime) / 1000) : 0;
-  const [elapsed, setElapsed] = useState(initialElapsed);
-  const [running, setRunning] = useState(!!isRestore && !!speechStartTime);
+function SpeechTimer({ onTick, isRestore, savedElapsed, savedRunning, onStateChange }) {
+  const [elapsed, setElapsed] = useState(isRestore ? (savedElapsed || 0) : 0);
+  const [running, setRunning] = useState(isRestore ? !!savedRunning : false);
   const ref = useRef(null);
   const isMobile = useIsMobile();
   useEffect(() => { if (running) ref.current = setInterval(() => setElapsed(p => p + 1), 1000); else clearInterval(ref.current); return () => clearInterval(ref.current); }, [running]);
   useEffect(() => { if (onTick) onTick(elapsed); }, [elapsed]);
+  useEffect(() => { if (onStateChange) onStateChange(elapsed, running); }, [elapsed, running]);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" }}>
       <div style={{ fontSize: isMobile ? 28 : 38, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: elapsed > 180 ? "#C45A5A" : "#E8E0D0", letterSpacing: "0.05em", lineHeight: 1 }}>{fmtTime(elapsed)}</div>
@@ -571,6 +571,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const [speechSequence, setSpeechSequence] = useState(restored?.speechSequence || []);
   const [timerKey, setTimerKey] = useState(0);
   const [isRestoredSpeech, setIsRestoredSpeech] = useState(!!restored?.activeSpeech);
+  const timerStateRef = useRef({ elapsed: restored?.timerElapsed || 0, running: restored?.timerRunning || false });
   const [docket, setDocket] = useState(restored?.docket || initDocket);
   const [currentBillIdx, setCurrentBillIdx] = useState(restored?.currentBillIdx || 0);
   const [showPQConfirm, setShowPQConfirm] = useState(false);
@@ -660,6 +661,7 @@ function ActiveRound({ config, onCloseRoom }) {
       mode, seekers, speechCounter, questionCounter, history,
       activeSpeech, pendingSpeaker, affCount, negCount, speechSequence,
       currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec,
+      timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running,
     };
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
@@ -831,7 +833,7 @@ function ActiveRound({ config, onCloseRoom }) {
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
-              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} speechStartTime={speechStartTime} isRestore={isRestoredSpeech} onTick={e => { currentSpeechElapsed.current = e; }} /><button aria-label="End speech and start questions" onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Questions</button></div>); })()}
+              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} isRestore={isRestoredSpeech} savedElapsed={restored?.timerElapsed} savedRunning={restored?.timerRunning} onTick={e => { currentSpeechElapsed.current = e; }} onStateChange={(e, r) => { timerStateRef.current = { elapsed: e, running: r }; }} /><button aria-label="End speech and start questions" onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Questions</button></div>); })()}
               {!activeSpeech && !pendingSpeaker && mode === "question" && inQuestionPeriod && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span>
                 <button onClick={() => { pushUndo(); switchToSpeechMode(); }} style={{ padding: "8px 18px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Next Speech →</button>
