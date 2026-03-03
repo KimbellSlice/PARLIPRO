@@ -779,6 +779,11 @@ function ActiveRound({ config, onCloseRoom }) {
             <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 8 }}>PIN </span>
             <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
           </div>}
+          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+            <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+            <span style={{ color: "#6b6358", marginLeft: 6 }}>PIN </span>
+            <span style={{ letterSpacing: "0.08em" }}>{poPin}</span>
+          </div>}
           {undoStack.length > 0 && <button onClick={undo} style={{ padding: "5px 10px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>↩ Undo</button>}
           <button onClick={() => setShowCloseConfirm(true)} style={{ padding: "5px 10px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Close</button>
         </div>
