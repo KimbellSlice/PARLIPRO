@@ -251,8 +251,8 @@ function SetupPhase({ onStart }) {
   const hasRoster = students.length >= 2;
   const hasDocket = docket.length >= 1;
   const hasSeating = seatingSlots.filter(Boolean).length >= 2;
-  const hasPO = poName.trim().length > 0;
-  const canStart = hasRoster && hasDocket && hasSeating && hasPO;
+  const hasPO = true;
+  const canStart = hasRoster && hasDocket && hasSeating;
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
 
   return (
@@ -273,15 +273,9 @@ function SetupPhase({ onStart }) {
         <div style={{ marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>Save your PIN — use it to rejoin if you lose your session</div>
       </header>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 20 }}>
-          <div>
-            <label style={LS}>Presiding Officer {check(hasPO)}</label>
-            <input value={poName} onChange={e => setPoName(e.target.value)} placeholder="Your name" aria-label="Presiding Officer name" style={IS} />
-          </div>
-          <div>
-            <label style={LS}>Room Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
-            <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Room name" style={IS} />
-          </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={LS}>Room Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
+          <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Room name" style={IS} />
         </div>
         <div style={{ display: "flex", marginBottom: 24, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530" }}>
           {[{ key: "roster", label: "Roster", done: hasRoster }, { key: "seating", label: "Seating", done: hasSeating }, { key: "docket", label: "Docket", done: hasDocket }].map(t => (
@@ -365,8 +359,8 @@ function SetupPhase({ onStart }) {
           </div>
           {docket.length === 0 && <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least one bill.</div>}
         </>)}
-        <button disabled={!canStart} onClick={() => { if (containsProfanity(poName)) { setPoName(""); profanity.trigger(); return; } if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map((s, i) => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          {canStart ? "Begin Round →" : `Complete setup (${[!hasPO && "PO Name", !hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
+        <button disabled={!canStart} onClick={() => { if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map((s, i) => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {canStart ? "Begin Round →" : `Complete setup (${[!hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
         </button>
       </div>
       {profanity.Toast}
@@ -375,7 +369,7 @@ function SetupPhase({ onStart }) {
 }
 
 // ═══ SHARED DISPLAY COMPONENTS ═══
-function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle }) {
+function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle, poStudentId }) {
   const getStudent = (id) => students.find(s => s.id === id);
   const isMobile = useIsMobile();
   return (
@@ -387,9 +381,11 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
           {seatingSlots.map((student, idx) => {
             if (!student) return <div key={idx} role="gridcell" style={{ minHeight: isMobile ? 44 : 64, borderRadius: 8, border: "2px dashed #2a2520" }} />;
             const s = getStudent(student.id); if (!s) return null;
-            const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = !!activeSpeech && mode === "speech";
-            return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked ? "pointer" : "default", textAlign: "center", border: isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: locked && !isSp ? 0.5 : 1, outline: "none" }}>
+            const isPO = poStudentId && s.id === poStudentId;
+            const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = (!!activeSpeech && mode === "speech") || isPO;
+            return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}${isPO ? " (PO)" : ""}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && !isPO && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked && !isPO) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isPO ? "#2a2520" : isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked && !isPO ? "pointer" : "default", textAlign: "center", border: isPO ? "2px dashed #3a3530" : isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isPO ? "#6b6358" : isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: isPO ? 0.4 : locked && !isSp ? 0.5 : 1, outline: "none" }}>
               <div style={{ fontSize: isMobile ? 11 : 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 4 }}>{s.name}</div>
+              {isPO && <div style={{ fontSize: 8, fontFamily: "'DM Mono', monospace", color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>PO</div>}
               <div style={{ fontSize: isMobile ? 8 : 10, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 8 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
               {isSk && !isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#F0D78C", border: "2px solid #1a1714" }} />}
               {isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#5AE89A", border: "2px solid #1a1714" }} />}
@@ -595,7 +591,7 @@ function RosterTab({ students, onRename, onAdd }) {
 
 // ═══ ACTIVE ROUND (PO) ═══
 function ActiveRound({ config, onCloseRoom }) {
-  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, poPin, questionPrec: configQuestionPrec } = config;
+  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, poPin, questionPrec: configQuestionPrec, poStudentId } = config;
 
   // Try restoring from session (for rejoin / refresh)
   const restored = (() => {
@@ -683,7 +679,7 @@ function ActiveRound({ config, onCloseRoom }) {
       activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
       speechStartTime: speechStartTime || null,
       speechElapsed: currentSpeechElapsed.current || 0,
-      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec,
+      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId,
     };
     writeRoomState(roomCode, state).catch(console.error);
   }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode]);
@@ -729,7 +725,7 @@ function ActiveRound({ config, onCloseRoom }) {
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
 
-  const toggleSeeker = (id) => { if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
+  const toggleSeeker = (id) => { if (id === poStudentId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
   const activeSeekers = mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers;
   const sortedSeekers = (() => sortPrec(activeSeekers.map(id => getStudent(id)).filter(Boolean), mode, questionPrec))();
 
@@ -892,7 +888,7 @@ function ActiveRound({ config, onCloseRoom }) {
               </div>)}
               {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
-              <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} />
+              <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} poStudentId={poStudentId} />
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
@@ -933,7 +929,7 @@ function ActiveRound({ config, onCloseRoom }) {
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && activeSeekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
-            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
+            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students.filter(s => s.id !== poStudentId), mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
           </div>
           )}
         </div>
@@ -959,12 +955,19 @@ function ActiveRound({ config, onCloseRoom }) {
 }
 
 // ═══ SPECTATOR VIEW ═══
-function SpectatorView({ roomCode }) {
+function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
   const isMobile = useIsMobile();
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
+  const [wantSpeech, setWantSpeech] = useState(false);
+  const [wantQuestion, setWantQuestion] = useState(false);
+  const [showPinEntry, setShowPinEntry] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinError, setPinError] = useState("");
+  const isCompetitor = !!competitorId;
+  const prevSpeechRef = useRef(null);
 
   useEffect(() => {
     const unsub = subscribeToRoom(roomCode, (data) => {
@@ -974,7 +977,67 @@ function SpectatorView({ roomCode }) {
     return unsub;
   }, [roomCode]);
 
-  // Timer comes directly from PO via Firebase
+  // Competitor: claim name heartbeat
+  useEffect(() => {
+    if (!isCompetitor) return;
+    claimCompetitorName(roomCode, competitorId).catch(console.error);
+    const iv = setInterval(() => {
+      claimCompetitorName(roomCode, competitorId).catch(console.error);
+    }, 5000);
+    return () => {
+      clearInterval(iv);
+      releaseCompetitorName(roomCode, competitorId).catch(console.error);
+    };
+  }, [roomCode, competitorId, isCompetitor]);
+
+  // Competitor: sync intents to Firebase
+  useEffect(() => {
+    if (isCompetitor && state) updateCompetitorIntent(roomCode, competitorId, "speech", wantSpeech).catch(console.error);
+  }, [wantSpeech, roomCode, competitorId, isCompetitor, state]);
+
+  useEffect(() => {
+    if (isCompetitor && state) updateCompetitorIntent(roomCode, competitorId, "question", wantQuestion).catch(console.error);
+  }, [wantQuestion, roomCode, competitorId, isCompetitor, state]);
+
+  // Reset all speech intents when a new speaker is recognized
+  useEffect(() => {
+    if (!state) return;
+    const currentSpeaker = state.activeSpeech?.studentId || null;
+    if (currentSpeaker && currentSpeaker !== prevSpeechRef.current) {
+      setWantSpeech(false);
+    }
+    prevSpeechRef.current = currentSpeaker;
+  }, [state?.activeSpeech?.studentId]);
+
+  // Reset question intent when leaving question period
+  useEffect(() => {
+    if (state && !state.activeSpeech && state.mode === "speech") {
+      setWantQuestion(false);
+    }
+  }, [state]);
+
+  // Competitor: handle split changes
+  const handleSplitChange = (billId, side) => {
+    if (isCompetitor) updateCompetitorSplit(roomCode, competitorId, billId, side || null).catch(console.error);
+  };
+
+  // PO claim
+  const handleClaimPO = () => {
+    if (!state) return;
+    if (!state.poPin) { setPinError("No PO PIN set for this room."); return; }
+    if (state.poHeartbeat && (Date.now() - state.poHeartbeat) < 15000) {
+      setPinError("A PO is currently active in this room.");
+      return;
+    }
+    if (state.poPin === pin) {
+      if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error);
+      onClaimPO(roomCode, state, competitorId);
+    } else {
+      setPinError("Incorrect PIN.");
+      setPin("");
+    }
+  };
+
   const elapsed = state?.activeSpeech ? (state?.speechElapsed || 0) : 0;
 
   if (!state) {
@@ -991,158 +1054,29 @@ function SpectatorView({ roomCode }) {
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "random", competitorIntents = {} } = state;
-  const students = (rawStudents || []).map(s => ({ ...s, speeches: s.speeches || 0, questions: s.questions || 0, speechHistory: s.speechHistory || [], questionHistory: s.questionHistory || [], initialOrder: s.initialOrder || 0 }));
-  const roundComplete = currentBillIdx >= docket.length;
-  const currentBill = docket[currentBillIdx] || null;
-  const getStudent = (id) => students.find(s => s.id === id);
-  const sortedSeekers = sortPrec((seekers || []).map(id => getStudent(id)).filter(Boolean), mode, questionPrec);
-  const displayName = roomName || `Room ${roomCode}`;
-
-  return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
-          {!isMobile && <Brand size="small" />}
-          <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
-            {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
-            {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
-            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>}
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
-          <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>
-            {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
-              <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
-              <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
-            </div>}
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", background: "#2a2520", borderRadius: 4, padding: "4px 8px", border: "1px solid #3a3530" }}>SPECTATOR</div>
-          </div>
-        </div>
-      </header>
-
-      {activeTab === "main" && !roundComplete ? (
-        <div style={{ display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "row", flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "hidden" }}>
-          <div style={{ flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "auto", minWidth: 0, display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
-            <div style={{ padding: isMobile ? "12px 12px" : "20px 24px" }}>
-              {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
-              {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
-              {!activeSpeech && mode === "speech" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase", marginBottom: 12 }}>🎤 Awaiting speakers</div>}
-              <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={seekers} activeSpeech={activeSpeech} mode={mode} interactive={false} />
-            </div>
-            <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
-              {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpectatorTimer elapsed={elapsed} /></div>); })()}
-              {!activeSpeech && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>❓ Question Period</span></div>)}
-            </div>
-            {/* Mobile queue toggle */}
-            {isMobile && (
-              <button onClick={() => setMobileShowQueue(q => !q)} style={{ margin: "0 12px 8px", padding: "10px", background: mobileShowQueue ? GOLD : "#2a2520", color: mobileShowQueue ? "#1a1714" : (mode === "speech" ? GOLD : "#7BA3BF"), border: `1px solid ${mobileShowQueue ? GOLD : "#3a3530"}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                {mobileShowQueue ? "▼ Hide Queue" : `▲ ${mode === "speech" ? "Speech" : "Question"} Queue`}
-              </button>
-            )}
-          </div>
-          {(!isMobile || mobileShowQueue) && (
-          <div style={{ width: isMobile ? "100%" : 250, borderLeft: isMobile ? "none" : "1px solid #2a2520", borderTop: isMobile ? "1px solid #2a2520" : "none", padding: isMobile ? "12px" : "16px 14px", display: "flex", flexDirection: "column", overflow: isMobile ? "visible" : "auto", flexShrink: 0 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>{mode === "speech" ? "Speech" : "Question"} Queue</div>
-            {sortedSeekers.length > 0 ? (<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div></div></div>); })}
-            </div>) : (<div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : "Waiting for speakers"}</div>)}
-            <div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
-              {sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
-            </div>
-          </div>
-          )}
-        </div>
-      ) : activeTab === "main" && roundComplete ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
-      ) : activeTab === "orders" ? (
-        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
-      ) : activeTab === "docket" ? (
-        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} />
-      ) : (
-        <LogTab history={history} />
-      )}
-    </div>
-  );
-}
-
-// ═══ ROOT ═══
-function CompetitorView({ roomCode, studentId, studentName, onSwitch }) {
-  const [state, setState] = useState(null);
-  const [disconnected, setDisconnected] = useState(false);
-  const [activeTab, setActiveTab] = useState("main");
-  const [wantSpeech, setWantSpeech] = useState(false);
-  const [wantQuestion, setWantQuestion] = useState(false);
-  const isMobile = useIsMobile();
-
-  useEffect(() => {
-    let timeout;
-    const unsub = subscribeToRoom(roomCode, (data) => {
-      if (!data) { timeout = setTimeout(() => setDisconnected(true), 5000); return; }
-      clearTimeout(timeout); setDisconnected(false); setState(data);
-    });
-    return () => { unsub(); clearTimeout(timeout); };
-  }, [roomCode]);
-
-  // Claim name on mount, heartbeat every 5s, release on unmount
-  useEffect(() => {
-    claimCompetitorName(roomCode, studentId).catch(console.error);
-    const iv = setInterval(() => {
-      claimCompetitorName(roomCode, studentId).catch(console.error);
-    }, 5000);
-    return () => {
-      clearInterval(iv);
-      releaseCompetitorName(roomCode, studentId).catch(console.error);
-    };
-  }, [roomCode, studentId]);
-
-  // Sync intent to Firebase when toggled
-  useEffect(() => {
-    if (state) updateCompetitorIntent(roomCode, studentId, "speech", wantSpeech).catch(console.error);
-  }, [wantSpeech, roomCode, studentId, state]);
-
-  useEffect(() => {
-    if (state) updateCompetitorIntent(roomCode, studentId, "question", wantQuestion).catch(console.error);
-  }, [wantQuestion, roomCode, studentId, state]);
-
-  // Reset question intent when not in question period
-  useEffect(() => {
-    if (state && !state.activeSpeech && state.mode === "speech") {
-      setWantQuestion(false);
-    }
-  }, [state]);
-
-  const handleSplitChange = (billId, side) => {
-    updateCompetitorSplit(roomCode, studentId, billId, side || null).catch(console.error);
-  };
-
-  if (!state) return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono', monospace" }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <div style={{ textAlign: "center", padding: 40, color: "#6b6358" }}>
-        {disconnected ? "Room not found or has ended." : "Connecting to room..."}
-      </div>
-    </div>
-  );
-
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], history = [], activeSpeech = null, currentBillIdx = 0, speechElapsed = 0, competitorIntents = {}, splits = {}, questionPrec = "random" } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "random", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
-  const roundComplete = docket.every(b => b.status);
+  const roundComplete = docket.length > 0 && docket.every(b => b.status);
   const currentBill = docket[currentBillIdx];
   const displayName = roomName || `Room ${roomCode}`;
   const sortedSeekers = sortPrec((seekers || []).map(id => getStudent(id)).filter(Boolean), mode, questionPrec);
-  const myStudent = getStudent(studentId);
+  const activeSeekers = sortedSeekers;
   const hasSpeech = !!activeSpeech;
 
-  // Compute split totals for current bill
+  // Figure out what the next speech would be
+  const getNextSpeechLabel = () => {
+    if (roundComplete) return null;
+    const seq = speechSequence || [];
+    const last = seq[seq.length - 1];
+    if (seq.length === 0) return "1st Speech";
+    if (last === "author" || last === "sponsor") return "1st Affirmative";
+    const side = last === "neg" ? "aff" : "neg";
+    const count = (side === "aff" ? (affCount || 0) : (negCount || 0)) + 1;
+    const ordinal = count === 1 ? "1st" : count === 2 ? "2nd" : count === 3 ? "3rd" : count + "th";
+    return `${ordinal} ${side === "aff" ? "Affirmative" : "Negative"}`;
+  };
+
   const getSplitTotals = (billId) => {
     let aff = 0, neg = 0;
     Object.values(splits).forEach(studentSplits => {
@@ -1151,130 +1085,149 @@ function CompetitorView({ roomCode, studentId, studentName, onSwitch }) {
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
-    return { aff, neg };
+    return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-          <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 6, padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1714" }}>{studentName}</div>
-            <button onClick={() => { releaseCompetitorName(roomCode, studentId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#1a1714aa", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: "1px 4px", textDecoration: "underline" }}>switch</button>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
+          {!isMobile && <Brand size="small" />}
+          <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
+            {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
+            {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
+            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>{poName ? `PO: ${poName} · ` : ""}{displayName}</div>}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>
-            {displayName} · PO: {poName}
-          </div>
+          {isCompetitor && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 5, padding: "3px 8px" }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{competitorName}</span>
+              </div>
+              <button onClick={() => { releaseCompetitorName(roomCode, competitorId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>switch</button>
+            </div>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Splits" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase", borderRadius: 4 }}>{t.label}</button>
-          ))}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
+          <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
+            {[{ key: "main", label: "Chamber" }, { key: "docket", label: isCompetitor ? "Splits" : "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
+              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
+            ))}
+          </div>
+          {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+            <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+          </div>}
+          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+            <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+          </div>}
         </div>
       </header>
 
       {activeTab === "main" && !roundComplete ? (
-        <div style={{ padding: isMobile ? 12 : 24 }}>
-          {/* Intent buttons */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            {!hasSpeech && mode === "speech" && (
-              <button onClick={() => setWantSpeech(w => !w)} style={{ flex: 1, padding: "14px 0", background: wantSpeech ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#2a2520", color: wantSpeech ? "#1a1714" : GOLD, border: wantSpeech ? "none" : `1px solid ${GOLD}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantSpeech ? "Seeking Recognition" : "Seek Recognition"}</button>
+        <div style={{ display: isMobile ? "block" : "flex", flex: 1, overflow: isMobile ? undefined : "hidden" }}>
+          <div style={{ flex: 1, padding: isMobile ? 12 : 20, overflow: isMobile ? undefined : "auto" }}>
+            {/* Current speaker / status */}
+            {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap", marginBottom: 16 }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpectatorTimer elapsed={elapsed} /></div>); })()}
+
+            {!activeSpeech && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>Question Period</span></div>)}
+
+            {!activeSpeech && mode === "speech" && !roundComplete && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase" }}>Awaiting speakers</span></div>)}
+
+            {/* Competitor: seek recognition / question */}
+            {isCompetitor && !roundComplete && (
+              <div style={{ marginBottom: 16 }}>
+                {!hasSpeech && mode === "speech" && (() => {
+                  const nextLabel = getNextSpeechLabel();
+                  return (
+                    <div style={{ background: "#2a2520", borderRadius: 8, border: wantSpeech ? `1px solid ${GOLD}` : "1px solid #3a3530", padding: "12px 16px" }}>
+                      {nextLabel && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginBottom: 8 }}>Next speech: <span style={{ color: GOLD }}>{nextLabel}</span></div>}
+                      <button onClick={() => setWantSpeech(w => !w)} style={{ width: "100%", padding: "10px 0", background: wantSpeech ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "transparent", color: wantSpeech ? "#1a1714" : GOLD, border: wantSpeech ? "none" : `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantSpeech ? "Indicated Interest" : "Indicate Interest in Next Speech"}</button>
+                    </div>
+                  );
+                })()}
+                {hasSpeech && (
+                  <div style={{ background: "#2a2520", borderRadius: 8, border: wantQuestion ? "1px solid #7BA3BF" : "1px solid #3a3530", padding: "12px 16px" }}>
+                    <button onClick={() => setWantQuestion(q => !q)} style={{ width: "100%", padding: "10px 0", background: wantQuestion ? "linear-gradient(135deg, #4A7D9F, #3A6D8F)" : "transparent", color: wantQuestion ? "#1a1714" : "#7BA3BF", border: wantQuestion ? "none" : "1px solid #7BA3BF", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantQuestion ? "Indicated Interest in Questioning" : "Indicate Interest in Questioning"}</button>
+                  </div>
+                )}
+              </div>
             )}
-            {hasSpeech && (
-              <button onClick={() => setWantQuestion(q => !q)} style={{ flex: 1, padding: "14px 0", background: wantQuestion ? "linear-gradient(135deg, #4A7D9F, #3A6D8F)" : "#2a2520", color: wantQuestion ? "#1a1714" : "#7BA3BF", border: wantQuestion ? "none" : "1px solid #7BA3BF", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantQuestion ? "Seeking to Question" : "Seek to Question"}</button>
-            )}
+
+            {/* Seating Chart */}
+            <SeatingGrid students={students} seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} interactive={false} locked={true} seekers={seekers} activeSpeech={activeSpeech} isMobile={isMobile} poStudentId={statePoStudentId} />
           </div>
 
-          {/* Current speaker info */}
-          {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (
-            <div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-              <div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: "6px 12px", border: "2px solid #5AE89A" }}>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>{sp.name}</div>
-              </div>
-              <div>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div>
-                <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div>
-              </div>
-              <SpectatorTimer elapsed={speechElapsed} />
-            </div>
-          ); })()}
-
-          {!activeSpeech && mode === "question" && (
-            <div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 16px", marginBottom: 16 }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>Question Period</span>
-            </div>
+          {/* Queue panel */}
+          {isMobile && (
+              <button onClick={() => setMobileShowQueue(q => !q)} style={{ margin: "0 12px 8px", padding: "10px", background: mobileShowQueue ? GOLD : "#2a2520", color: mobileShowQueue ? "#1a1714" : (mode === "speech" ? GOLD : "#7BA3BF"), border: `1px solid ${mobileShowQueue ? GOLD : "#3a3530"}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                {mobileShowQueue ? `Hide Queue` : `${mode === "speech" ? "Speech" : "Question"} Queue (${activeSeekers.length})`}
+              </button>
           )}
+          {(!isMobile || mobileShowQueue) && (
+          <div style={{ width: isMobile ? "100%" : 280, borderLeft: isMobile ? "none" : "1px solid #2a2520", padding: isMobile ? "0 12px 12px" : "16px 14px", overflow: isMobile ? undefined : "auto", flexShrink: 0 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>{mode === "speech" ? "Speech" : "Question"} Queue</div>
+            {activeSeekers.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>{s.speeches||0}sp {s.questions||0}q</div></div></div></div>); })}
+              </div>
+            ) : (
+              <div style={{ paddingTop: 8 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
+              {sortPrec(students.filter(s => s.id !== statePoStudentId), mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}{isCompetitor && s.id === competitorId ? " (you)" : ""}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>interested</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
+              </div>
+            )}
 
-          {/* Current bill */}
-          {currentBill && (
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", marginBottom: 16 }}>
-              <span style={{ color: "#6b6358" }}>{currentBillIdx + 1}/{docket.length}</span> {currentBill.name}
-            </div>
-          )}
-
-          {/* Precedence list with intent highlights */}
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
-            {mode === "speech" ? "Speech" : "Question"} Precedence
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {sortPrec(students, mode, questionPrec).map((s, idx) => {
-              const intent = competitorIntents[fbSafe(s.id)] || {};
-              const hasIntent = mode === "speech" ? intent.speech : intent.question;
-              const isMe = s.id === studentId;
-              const isSeeking = (seekers || []).includes(s.id);
-              return (
-                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: hasIntent ? `${GOLD}15` : "#2a2520", border: isMe ? `1px solid ${GOLD}` : hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 6 }}>
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{idx + 1}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 700 : 500, color: hasIntent ? GOLD : isMe ? "#E8E0D0" : "#9B917F" }}>{s.name}{isMe ? " (you)" : ""}</span>
-                  {hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em" }}>seeking</span>}
-                  {isSeeking && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "#5AE89A", textTransform: "uppercase" }}>in queue</span>}
-                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{mode === "speech" ? s.speeches||0 : s.questions||0}</span>
+            {/* Claim PO button */}
+            {showPinEntry ? (
+              <div style={{ marginTop: 16, padding: 12, background: "#2a2520", borderRadius: 8, border: `1px solid ${GOLD}` }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", marginBottom: 8 }}>Enter PO PIN</div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ flex: 1, background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 4, padding: "8px", fontFamily: "'DM Mono', monospace", fontSize: 14, textAlign: "center", letterSpacing: "0.2em" }} />
+                  <button onClick={handleClaimPO} disabled={pin.length !== 4} style={{ padding: "8px 14px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Go</button>
                 </div>
-              );
-            })}
+                {pinError && <div style={{ fontSize: 10, color: "#C45A5A", fontFamily: "'DM Mono', monospace", marginTop: 4 }}>{pinError}</div>}
+                <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ marginTop: 6, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+              </div>
+            ) : (
+              <button onClick={() => setShowPinEntry(true)} style={{ marginTop: 16, width: "100%", padding: "8px 0", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Claim PO Role</button>
+            )}
           </div>
+          )}
         </div>
       ) : activeTab === "main" && roundComplete ? (
-        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div>
-            <button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button>
-          </div>
-        </div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
       ) : activeTab === "docket" ? (
-        <div style={{ padding: isMobile ? 12 : 24, maxWidth: 600, margin: "0 auto" }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>My Splits</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {docket.map((b, i) => {
-              const mySplit = (splits[fbSafe(studentId)] || {})[fbSafe(b.id)] || "";
-              const totals = getSplitTotals(b.id);
-              const isPast = !!b.status;
-              return (
-                <div key={b.id || i} style={{ padding: "12px 14px", background: "#2a2520", borderRadius: 8, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{i + 1}.</span>
-                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
-                    {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
-                  </div>
-                  {!isPast && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <select value={mySplit} onChange={e => handleSplitChange(b.id, e.target.value)} style={{ flex: 1, padding: "8px 10px", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
-                        <option value="">No split</option>
-                        <option value="aff">Affirmative</option>
-                        <option value="neg">Negative</option>
-                        <option value="both">Both</option>
-                      </select>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", whiteSpace: "nowrap" }}>
-                        <span style={{ color: "#5AE89A" }}>{totals.aff} aff</span> / <span style={{ color: "#C45A5A" }}>{totals.neg} neg</span>
-                      </div>
+        isCompetitor ? (
+          <div style={{ padding: isMobile ? 12 : 24, maxWidth: 600, margin: "0 auto" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>My Splits</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {docket.map((b, i) => {
+                const mySplit = (splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "";
+                const totals = getSplitTotals(b.id);
+                const isPast = !!b.status;
+                return (
+                  <div key={b.id || i} style={{ padding: "12px 14px", background: "#2a2520", borderRadius: 8, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isPast ? 0 : 8 }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                      {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
+                      {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    {!isPast && (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {["aff", "neg", "both"].map(opt => (
+                          <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: "8px 0", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `1px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        ) : (
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} />
+        )
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : (
@@ -1352,7 +1305,7 @@ export default function App() {
 
   const handleCloseRoom = () => { setView("landing"); setConfig(null); };
 
-  const handleRejoinPO = (roomCode, firebaseData) => {
+  const handleRejoinPO = (roomCode, firebaseData, claimingStudentId) => {
     // Rebuild config from Firebase data
     const cfg = {
       students: (firebaseData.students || []).map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[], initialOrder: s.initialOrder||0 })),
@@ -1365,6 +1318,7 @@ export default function App() {
       poName: firebaseData.poName || "",
       roomName: firebaseData.roomName || "",
       poPin: firebaseData.poPin || "",
+      poStudentId: claimingStudentId || firebaseData.poStudentId || null,
     };
     // Also save to session so ActiveRound can restore internal state
     try {
@@ -1392,7 +1346,7 @@ export default function App() {
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={(cfg) => { setConfig(cfg); setView("active"); }} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
-  if (view === "competitor" && competitorInfo) return <CompetitorView roomCode={competitorInfo.roomCode} studentId={competitorInfo.studentId} studentName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} />;
-  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} />;
+  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} />;
+  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} />;
   return null;
 }
