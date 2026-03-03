@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit } from "./firebase.js";
+import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -12,6 +12,7 @@ const FONTS_LINK = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wgh
 
 // Profanity filter
 const BAD_WORDS = ["fuck","shit","ass","bitch","damn","dick","pussy","cock","cunt","bastard","slut","whore","fag","nigger","nigga","retard","twat","wanker","piss","bollocks","arse","asshole","motherfucker","bullshit","goddamn","jackass","dumbass","douche","dildo","penis","vagina","tits","boobs","butthole","shithead","dickhead","fuckhead","asswipe","cocksucker","fucker","bitchass","hoe","thot","stfu","gtfo","milf"];
+const fbSafe = (id) => String(id).replace(/\./g, '_');
 const badWordRegex = new RegExp(`\\b(${BAD_WORDS.join("|")})\\b`, "i");
 const containsProfanity = (text) => badWordRegex.test(text);
 const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 50);
@@ -93,6 +94,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [showNamePicker, setShowNamePicker] = useState(false);
   const [rosterNames, setRosterNames] = useState([]);
+  const [rosterClaims, setRosterClaims] = useState({});
   const [pin, setPin] = useState("");
   const [pendingCode, setPendingCode] = useState("");
 
@@ -117,6 +119,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
       if (!data.students || data.students.length === 0) { setJoinError("Room has no roster yet."); return; }
       setPendingCode(code);
       setRosterNames(data.students.map(s => ({ id: s.id, name: s.name })));
+      setRosterClaims(data.competitorClaims || {});
       setShowNamePicker(true);
     });
   };
@@ -177,9 +180,16 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
             <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Select your name</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflow: "auto" }}>
-                {rosterNames.map(s => (
-                  <button key={s.id} onClick={() => onJoinCompetitor(pendingCode, s.id, s.name)} style={{ padding: "12px 16px", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>{s.name}</button>
-                ))}
+                {rosterNames.map(s => {
+                  const claim = (rosterClaims || {})[fbSafe(s.id)];
+                  const taken = claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000;
+                  return (
+                    <button key={s.id} onClick={() => !taken && onJoinCompetitor(pendingCode, s.id, s.name)} disabled={taken} style={{ padding: "12px 16px", background: taken ? "#1e1b17" : "#1e1b17", color: taken ? "#6b6358" : "#E8E0D0", border: taken ? "1px solid #2a2520" : "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: taken ? "not-allowed" : "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>{s.name}</span>
+                      {taken && <span style={{ fontSize: 9, color: "#C45A5A", textTransform: "uppercase" }}>In Room</span>}
+                    </button>
+                  );
+                })}
               </div>
               <button onClick={() => { setShowNamePicker(false); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button>
             </div>
@@ -519,7 +529,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
     if (!splits) return null;
     let aff = 0, neg = 0;
     Object.values(splits).forEach(studentSplits => {
-      const s = studentSplits[billId];
+      const s = studentSplits[fbSafe(billId)];
       if (s === "aff") aff++;
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
@@ -923,7 +933,7 @@ function ActiveRound({ config, onCloseRoom }) {
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && activeSeekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
-            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[s.id] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
+            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
           </div>
           )}
         </div>
@@ -1045,7 +1055,7 @@ function SpectatorView({ roomCode }) {
             </div>) : (<div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : "Waiting for speakers"}</div>)}
             <div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
-              {sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[s.id] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
+              {sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
             </div>
           </div>
           )}
@@ -1064,7 +1074,7 @@ function SpectatorView({ roomCode }) {
 }
 
 // ═══ ROOT ═══
-function CompetitorView({ roomCode, studentId, studentName }) {
+function CompetitorView({ roomCode, studentId, studentName, onSwitch }) {
   const [state, setState] = useState(null);
   const [disconnected, setDisconnected] = useState(false);
   const [activeTab, setActiveTab] = useState("main");
@@ -1081,21 +1091,33 @@ function CompetitorView({ roomCode, studentId, studentName }) {
     return () => { unsub(); clearTimeout(timeout); };
   }, [roomCode]);
 
+  // Claim name on mount, heartbeat every 5s, release on unmount
+  useEffect(() => {
+    claimCompetitorName(roomCode, studentId).catch(console.error);
+    const iv = setInterval(() => {
+      claimCompetitorName(roomCode, studentId).catch(console.error);
+    }, 5000);
+    return () => {
+      clearInterval(iv);
+      releaseCompetitorName(roomCode, studentId).catch(console.error);
+    };
+  }, [roomCode, studentId]);
+
   // Sync intent to Firebase when toggled
   useEffect(() => {
-    updateCompetitorIntent(roomCode, studentId, "speech", wantSpeech).catch(console.error);
-  }, [wantSpeech, roomCode, studentId]);
+    if (state) updateCompetitorIntent(roomCode, studentId, "speech", wantSpeech).catch(console.error);
+  }, [wantSpeech, roomCode, studentId, state]);
 
   useEffect(() => {
-    updateCompetitorIntent(roomCode, studentId, "question", wantQuestion).catch(console.error);
-  }, [wantQuestion, roomCode, studentId]);
+    if (state) updateCompetitorIntent(roomCode, studentId, "question", wantQuestion).catch(console.error);
+  }, [wantQuestion, roomCode, studentId, state]);
 
   // Reset question intent when not in question period
   useEffect(() => {
     if (state && !state.activeSpeech && state.mode === "speech") {
       setWantQuestion(false);
     }
-  }, [state?.activeSpeech, state?.mode]);
+  }, [state]);
 
   const handleSplitChange = (billId, side) => {
     updateCompetitorSplit(roomCode, studentId, billId, side || null).catch(console.error);
@@ -1124,7 +1146,7 @@ function CompetitorView({ roomCode, studentId, studentName }) {
   const getSplitTotals = (billId) => {
     let aff = 0, neg = 0;
     Object.values(splits).forEach(studentSplits => {
-      const s = studentSplits[billId];
+      const s = studentSplits[fbSafe(billId)];
       if (s === "aff") aff++;
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
@@ -1137,8 +1159,9 @@ function CompetitorView({ roomCode, studentId, studentName }) {
       <link href={FONTS_LINK} rel="stylesheet" />
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-          <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 6, padding: "4px 10px" }}>
+          <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 6, padding: "4px 10px", display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1714" }}>{studentName}</div>
+            <button onClick={() => { releaseCompetitorName(roomCode, studentId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#1a1714aa", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", padding: "1px 4px", textDecoration: "underline" }}>switch</button>
           </div>
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>
             {displayName} · PO: {poName}
@@ -1196,7 +1219,7 @@ function CompetitorView({ roomCode, studentId, studentName }) {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {sortPrec(students, mode, questionPrec).map((s, idx) => {
-              const intent = competitorIntents[s.id] || {};
+              const intent = competitorIntents[fbSafe(s.id)] || {};
               const hasIntent = mode === "speech" ? intent.speech : intent.question;
               const isMe = s.id === studentId;
               const isSeeking = (seekers || []).includes(s.id);
@@ -1224,7 +1247,7 @@ function CompetitorView({ roomCode, studentId, studentName }) {
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>My Splits</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {docket.map((b, i) => {
-              const mySplit = (splits[studentId] || {})[b.id] || "";
+              const mySplit = (splits[fbSafe(studentId)] || {})[fbSafe(b.id)] || "";
               const totals = getSplitTotals(b.id);
               const isPast = !!b.status;
               return (
@@ -1369,7 +1392,7 @@ export default function App() {
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={(cfg) => { setConfig(cfg); setView("active"); }} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
-  if (view === "competitor" && competitorInfo) return <CompetitorView roomCode={competitorInfo.roomCode} studentId={competitorInfo.studentId} studentName={competitorInfo.studentName} />;
+  if (view === "competitor" && competitorInfo) return <CompetitorView roomCode={competitorInfo.roomCode} studentId={competitorInfo.studentId} studentName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} />;
   return null;
 }

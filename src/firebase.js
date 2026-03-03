@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, onValue, ref, remove, update } from 'firebase/database';
+import { getDatabase, onValue, ref, remove, set, update } from 'firebase/database';
 
 // Replace with your real Firebase config
 const firebaseConfig = {
@@ -72,12 +72,25 @@ export function cleanupStaleRooms() {
   }, { onlyOnce: true });
 }
 
+// Helper: make IDs safe for Firebase paths (no dots)
+function fbSafe(id) { return String(id).replace(/\./g, '_'); }
+
 // Competitor: set speech/question intent
 export function updateCompetitorIntent(roomCode, studentId, intentType, value) {
-  return update(ref(db, `rooms/${roomCode}/competitorIntents/${studentId}`), { [intentType]: value });
+  return update(ref(db, `rooms/${roomCode}/competitorIntents/${fbSafe(studentId)}`), { [intentType]: value });
 }
 
 // Competitor: set split for a bill
 export function updateCompetitorSplit(roomCode, studentId, billId, side) {
-  return update(ref(db, `rooms/${roomCode}/splits/${studentId}`), { [billId]: side });
+  return update(ref(db, `rooms/${roomCode}/splits/${fbSafe(studentId)}`), { [fbSafe(billId)]: side });
+}
+
+// Competitor: claim a name (heartbeat)
+export function claimCompetitorName(roomCode, studentId) {
+  return update(ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`), { claimedAt: Date.now() });
+}
+
+// Competitor: release a name claim
+export function releaseCompetitorName(roomCode, studentId) {
+  return set(ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`), null);
 }
