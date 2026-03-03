@@ -160,7 +160,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
             </div>
           ) : (
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleJoin} disabled={checking} style={{ flex: 1, padding: "14px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Join as Spectator"}</button>
+              <button onClick={handleJoin} disabled={checking} style={{ flex: 1, padding: "14px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Join as Spectator"}</button>
               <button onClick={handleRejoin} disabled={checking} style={{ flex: 1, padding: "14px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Rejoin as PO"}</button>
             </div>
           )}
