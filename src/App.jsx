@@ -679,7 +679,7 @@ function ActiveRound({ config, onCloseRoom }) {
       activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
       speechStartTime: speechStartTime || null,
       speechElapsed: currentSpeechElapsed.current || 0,
-      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId,
+      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId: poStudentId || null,
     };
     writeRoomState(roomCode, state).catch(console.error);
   }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode]);
