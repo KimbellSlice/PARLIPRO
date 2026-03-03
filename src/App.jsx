@@ -95,6 +95,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
   const [showNamePicker, setShowNamePicker] = useState(false);
   const [rosterNames, setRosterNames] = useState([]);
   const [rosterClaims, setRosterClaims] = useState({});
+  const [pendingRoomData, setPendingRoomData] = useState(null);
   const [pin, setPin] = useState("");
   const [pendingCode, setPendingCode] = useState("");
 
@@ -120,6 +121,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
       setPendingCode(code);
       setRosterNames(data.students.map(s => ({ id: s.id, name: s.name })));
       setRosterClaims(data.competitorClaims || {});
+      setPendingRoomData(data);
       setShowNamePicker(true);
     });
   };
@@ -182,11 +184,13 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflow: "auto" }}>
                 {rosterNames.map(s => {
                   const claim = (rosterClaims || {})[fbSafe(s.id)];
-                  const taken = claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000;
+                  const claimedByCompetitor = claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000;
+                  const claimedByPO = pendingRoomData?.poStudentId === s.id;
+                  const taken = claimedByCompetitor || claimedByPO;
                   return (
                     <button key={s.id} onClick={() => !taken && onJoinCompetitor(pendingCode, s.id, s.name)} disabled={taken} style={{ padding: "12px 16px", background: taken ? "#1e1b17" : "#1e1b17", color: taken ? "#6b6358" : "#E8E0D0", border: taken ? "1px solid #2a2520" : "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: taken ? "not-allowed" : "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>{s.name}</span>
-                      {taken && <span style={{ fontSize: 9, color: "#C45A5A", textTransform: "uppercase" }}>In Room</span>}
+                      {taken && <span style={{ fontSize: 9, color: claimedByPO ? GOLD : "#C45A5A", textTransform: "uppercase" }}>{claimedByPO ? "PO" : "In Room"}</span>}
                     </button>
                   );
                 })}
