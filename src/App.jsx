@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms } from "./firebase.js";
+import { writeRoomState, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -86,11 +86,13 @@ function SpectatorTimer({ elapsed = 0 }) {
 }
 
 // ═══ LANDING PAGE ═══
-function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
+function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO }) {
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [checking, setChecking] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
+  const [showNamePicker, setShowNamePicker] = useState(false);
+  const [rosterNames, setRosterNames] = useState([]);
   const [pin, setPin] = useState("");
   const [pendingCode, setPendingCode] = useState("");
 
@@ -105,6 +107,20 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
     });
   };
 
+  const handleJoinAsCompetitor = () => {
+    const code = joinCode.trim().toUpperCase();
+    if (code.length < 4) { setJoinError("Enter a valid room code"); return; }
+    setChecking(true); setJoinError("");
+    getRoomOnce(code, (data) => {
+      setChecking(false);
+      if (!data) { setJoinError("Room not found."); return; }
+      if (!data.students || data.students.length === 0) { setJoinError("Room has no roster yet."); return; }
+      setPendingCode(code);
+      setRosterNames(data.students.map(s => ({ id: s.id, name: s.name })));
+      setShowNamePicker(true);
+    });
+  };
+
   const handleRejoin = () => {
     const code = joinCode.trim().toUpperCase();
     if (code.length < 4) { setJoinError("Enter a room code first"); return; }
@@ -113,7 +129,6 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
       setChecking(false);
       if (!data) { setJoinError("Room not found."); return; }
       if (!data.poPin) { setJoinError("This room has no PO PIN set."); return; }
-      // Check if another PO session is active (heartbeat within last 15 seconds)
       if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < 15000) {
         setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
         return;
@@ -147,7 +162,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.15em", textTransform: "uppercase" }}>or enter a room code</span>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
           </div>
-          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); }} onKeyDown={e => e.key === "Enter" && handleJoin()} placeholder="ROOM CODE" aria-label="Room code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
+          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); setShowNamePicker(false); }} onKeyDown={e => e.key === "Enter" && handleJoinAsCompetitor()} placeholder="ROOM CODE" aria-label="Room code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
 
           {showPinEntry ? (
             <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
@@ -158,10 +173,23 @@ function LandingPage({ onCreateRoom, onJoinRoom, onRejoinPO }) {
               </div>
               <button onClick={() => { setShowPinEntry(false); setPin(""); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button>
             </div>
+          ) : showNamePicker ? (
+            <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Select your name</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflow: "auto" }}>
+                {rosterNames.map(s => (
+                  <button key={s.id} onClick={() => onJoinCompetitor(pendingCode, s.id, s.name)} style={{ padding: "12px 16px", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer", textAlign: "left" }}>{s.name}</button>
+                ))}
+              </div>
+              <button onClick={() => { setShowNamePicker(false); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button>
+            </div>
           ) : (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleJoin} disabled={checking} style={{ flex: 1, padding: "14px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Join as Spectator"}</button>
-              <button onClick={handleRejoin} disabled={checking} style={{ flex: 1, padding: "14px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Rejoin as PO"}</button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={handleJoinAsCompetitor} disabled={checking} style={{ width: "100%", padding: "14px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Join as Competitor"}</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleJoin} disabled={checking} style={{ flex: 1, padding: "10px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Spectator"}</button>
+                <button onClick={handleRejoin} disabled={checking} style={{ flex: 1, padding: "10px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: checking ? "wait" : "pointer" }}>{checking ? "..." : "Rejoin as PO"}</button>
+              </div>
             </div>
           )}
 
@@ -486,7 +514,18 @@ function LogTab({ history }) {
   );
 }
 
-function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef }) {
+function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits }) {
+  const getSplitTotals = (billId) => {
+    if (!splits) return null;
+    let aff = 0, neg = 0;
+    Object.values(splits).forEach(studentSplits => {
+      const s = studentSplits[billId];
+      if (s === "aff") aff++;
+      else if (s === "neg") neg++;
+      else if (s === "both") { aff++; neg++; }
+    });
+    return (aff > 0 || neg > 0) ? { aff, neg } : null;
+  };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
@@ -498,6 +537,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
               <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
+                {(() => { const t = getSplitTotals(b.id); return t ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", marginLeft: "auto" }}><span style={{ color: "#5AE89A" }}>{t.aff}A</span>/<span style={{ color: "#C45A5A" }}>{t.neg}N</span></span> : null; })()}
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
             </div>); })}
@@ -582,6 +622,8 @@ function ActiveRound({ config, onCloseRoom }) {
   const docketInputRef = useRef(null);
   const [speechStartTime, setSpeechStartTime] = useState(restored?.speechStartTime || null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [competitorIntents, setCompetitorIntents] = useState({});
+  const [competitorSplits, setCompetitorSplits] = useState({});
   const isMobile = useIsMobile();
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [showNextSpeechConfirm, setShowNextSpeechConfirm] = useState(false);
@@ -645,6 +687,15 @@ function ActiveRound({ config, onCloseRoom }) {
       updateHeartbeat(roomCode).catch(console.error);
     }, 5000);
     return () => clearInterval(iv);
+  }, [roomCode]);
+
+  // Subscribe to competitor intents and splits
+  useEffect(() => {
+    const unsub = subscribeToRoom(roomCode, (data) => {
+      if (data?.competitorIntents) setCompetitorIntents(data.competitorIntents);
+      if (data?.splits) setCompetitorSplits(data.splits);
+    });
+    return unsub;
   }, [roomCode]);
 
   // Sync elapsed timer to Firebase every second during speech
@@ -872,7 +923,7 @@ function ActiveRound({ config, onCloseRoom }) {
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && activeSeekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
-            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode, questionPrec).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}</div>)}
+            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[s.id] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
           </div>
           )}
         </div>
@@ -886,7 +937,7 @@ function ActiveRound({ config, onCloseRoom }) {
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : activeTab === "docket" ? (
-        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} />
+        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} />
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
       ) : (
@@ -930,7 +981,7 @@ function SpectatorView({ roomCode }) {
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "random" } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "random", competitorIntents = {} } = state;
   const students = (rawStudents || []).map(s => ({ ...s, speeches: s.speeches || 0, questions: s.questions || 0, speechHistory: s.speechHistory || [], questionHistory: s.questionHistory || [], initialOrder: s.initialOrder || 0 }));
   const roundComplete = currentBillIdx >= docket.length;
   const currentBill = docket[currentBillIdx] || null;
@@ -994,7 +1045,7 @@ function SpectatorView({ roomCode }) {
             </div>) : (<div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : "Waiting for speakers"}</div>)}
             <div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
-              {sortPrec(students, mode, questionPrec).map((s, idx) => (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0", fontSize: 12, color: idx === 0 ? GOLD : "#6b6358" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>))}
+              {sortPrec(students, mode, questionPrec).map((s, idx) => { const intent = competitorIntents[s.id] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
             </div>
           </div>
           )}
@@ -1013,10 +1064,208 @@ function SpectatorView({ roomCode }) {
 }
 
 // ═══ ROOT ═══
+function CompetitorView({ roomCode, studentId, studentName }) {
+  const [state, setState] = useState(null);
+  const [disconnected, setDisconnected] = useState(false);
+  const [activeTab, setActiveTab] = useState("main");
+  const [wantSpeech, setWantSpeech] = useState(false);
+  const [wantQuestion, setWantQuestion] = useState(false);
+  const isMobile = useIsMobile();
+
+  useEffect(() => {
+    let timeout;
+    const unsub = subscribeToRoom(roomCode, (data) => {
+      if (!data) { timeout = setTimeout(() => setDisconnected(true), 5000); return; }
+      clearTimeout(timeout); setDisconnected(false); setState(data);
+    });
+    return () => { unsub(); clearTimeout(timeout); };
+  }, [roomCode]);
+
+  // Sync intent to Firebase when toggled
+  useEffect(() => {
+    updateCompetitorIntent(roomCode, studentId, "speech", wantSpeech).catch(console.error);
+  }, [wantSpeech, roomCode, studentId]);
+
+  useEffect(() => {
+    updateCompetitorIntent(roomCode, studentId, "question", wantQuestion).catch(console.error);
+  }, [wantQuestion, roomCode, studentId]);
+
+  // Reset question intent when not in question period
+  useEffect(() => {
+    if (state && !state.activeSpeech && state.mode === "speech") {
+      setWantQuestion(false);
+    }
+  }, [state?.activeSpeech, state?.mode]);
+
+  const handleSplitChange = (billId, side) => {
+    updateCompetitorSplit(roomCode, studentId, billId, side || null).catch(console.error);
+  };
+
+  if (!state) return (
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "'DM Mono', monospace" }}>
+      <link href={FONTS_LINK} rel="stylesheet" />
+      <div style={{ textAlign: "center", padding: 40, color: "#6b6358" }}>
+        {disconnected ? "Room not found or has ended." : "Connecting to room..."}
+      </div>
+    </div>
+  );
+
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], history = [], activeSpeech = null, currentBillIdx = 0, speechElapsed = 0, competitorIntents = {}, splits = {}, questionPrec = "random" } = state;
+  const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
+  const getStudent = (id) => students.find(s => s.id === id);
+  const roundComplete = docket.every(b => b.status);
+  const currentBill = docket[currentBillIdx];
+  const displayName = roomName || `Room ${roomCode}`;
+  const sortedSeekers = sortPrec((seekers || []).map(id => getStudent(id)).filter(Boolean), mode, questionPrec);
+  const myStudent = getStudent(studentId);
+  const hasSpeech = !!activeSpeech;
+
+  // Compute split totals for current bill
+  const getSplitTotals = (billId) => {
+    let aff = 0, neg = 0;
+    Object.values(splits).forEach(studentSplits => {
+      const s = studentSplits[billId];
+      if (s === "aff") aff++;
+      else if (s === "neg") neg++;
+      else if (s === "both") { aff++; neg++; }
+    });
+    return { aff, neg };
+  };
+
+  return (
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif" }}>
+      <link href={FONTS_LINK} rel="stylesheet" />
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+          <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 6, padding: "4px 10px" }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1714" }}>{studentName}</div>
+          </div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>
+            {displayName} · PO: {poName}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Splits" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase", borderRadius: 4 }}>{t.label}</button>
+          ))}
+        </div>
+      </header>
+
+      {activeTab === "main" && !roundComplete ? (
+        <div style={{ padding: isMobile ? 12 : 24 }}>
+          {/* Intent buttons */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            {!hasSpeech && mode === "speech" && (
+              <button onClick={() => setWantSpeech(w => !w)} style={{ flex: 1, padding: "14px 0", background: wantSpeech ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#2a2520", color: wantSpeech ? "#1a1714" : GOLD, border: wantSpeech ? "none" : `1px solid ${GOLD}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantSpeech ? "Seeking Recognition" : "Seek Recognition"}</button>
+            )}
+            {hasSpeech && (
+              <button onClick={() => setWantQuestion(q => !q)} style={{ flex: 1, padding: "14px 0", background: wantQuestion ? "linear-gradient(135deg, #4A7D9F, #3A6D8F)" : "#2a2520", color: wantQuestion ? "#1a1714" : "#7BA3BF", border: wantQuestion ? "none" : "1px solid #7BA3BF", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantQuestion ? "Seeking to Question" : "Seek to Question"}</button>
+            )}
+          </div>
+
+          {/* Current speaker info */}
+          {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (
+            <div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: "12px 16px", display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              <div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: "6px 12px", border: "2px solid #5AE89A" }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{sp.name}</div>
+              </div>
+              <div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div>
+                <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div>
+              </div>
+              <SpectatorTimer elapsed={speechElapsed} />
+            </div>
+          ); })()}
+
+          {!activeSpeech && mode === "question" && (
+            <div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 16px", marginBottom: 16 }}>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>Question Period</span>
+            </div>
+          )}
+
+          {/* Current bill */}
+          {currentBill && (
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", marginBottom: 16 }}>
+              <span style={{ color: "#6b6358" }}>{currentBillIdx + 1}/{docket.length}</span> {currentBill.name}
+            </div>
+          )}
+
+          {/* Precedence list with intent highlights */}
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            {mode === "speech" ? "Speech" : "Question"} Precedence
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {sortPrec(students, mode, questionPrec).map((s, idx) => {
+              const intent = competitorIntents[s.id] || {};
+              const hasIntent = mode === "speech" ? intent.speech : intent.question;
+              const isMe = s.id === studentId;
+              const isSeeking = (seekers || []).includes(s.id);
+              return (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: hasIntent ? `${GOLD}15` : "#2a2520", border: isMe ? `1px solid ${GOLD}` : hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 6 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{idx + 1}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 700 : 500, color: hasIntent ? GOLD : isMe ? "#E8E0D0" : "#9B917F" }}>{s.name}{isMe ? " (you)" : ""}</span>
+                  {hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em" }}>seeking</span>}
+                  {isSeeking && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "#5AE89A", textTransform: "uppercase" }}>in queue</span>}
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{mode === "speech" ? s.speeches||0 : s.questions||0}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : activeTab === "main" && roundComplete ? (
+        <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div>
+            <button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button>
+          </div>
+        </div>
+      ) : activeTab === "docket" ? (
+        <div style={{ padding: isMobile ? 12 : 24, maxWidth: 600, margin: "0 auto" }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>My Splits</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {docket.map((b, i) => {
+              const mySplit = (splits[studentId] || {})[b.id] || "";
+              const totals = getSplitTotals(b.id);
+              const isPast = !!b.status;
+              return (
+                <div key={b.id || i} style={{ padding: "12px 14px", background: "#2a2520", borderRadius: 8, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{i + 1}.</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                    {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
+                  </div>
+                  {!isPast && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <select value={mySplit} onChange={e => handleSplitChange(b.id, e.target.value)} style={{ flex: 1, padding: "8px 10px", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                        <option value="">No split</option>
+                        <option value="aff">Affirmative</option>
+                        <option value="neg">Negative</option>
+                        <option value="both">Both</option>
+                      </select>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", whiteSpace: "nowrap" }}>
+                        <span style={{ color: "#5AE89A" }}>{totals.aff} aff</span> / <span style={{ color: "#C45A5A" }}>{totals.neg} neg</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : activeTab === "orders" ? (
+        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
+      ) : (
+        <LogTab history={history} />
+      )}
+    </div>
+  );
+}
+
 export default function App() {
   const [view, setView] = useState("landing");
   const [config, setConfig] = useState(null);
   const [spectatorCode, setSpectatorCode] = useState(null);
+  const [competitorInfo, setCompetitorInfo] = useState(null);
   const isMobile = useIsMobile();
 
   // Global animations
@@ -1045,7 +1294,7 @@ export default function App() {
     try {
       const saved = sessionStorage.getItem('parlipro-session');
       if (saved) {
-        const { view: v, roomCode, spectatorCode: sc } = JSON.parse(saved);
+        const { view: v, roomCode, spectatorCode: sc, competitorInfo: ci } = JSON.parse(saved);
         if (v === "active" && roomCode) {
           const poData = sessionStorage.getItem(`parlipro-po-${roomCode}`);
           if (poData) {
@@ -1060,6 +1309,11 @@ export default function App() {
           setView("spectator");
           return;
         }
+        if (v === "competitor" && ci) {
+          setCompetitorInfo(ci);
+          setView("competitor");
+          return;
+        }
       }
     } catch(e) {}
   }, []);
@@ -1068,7 +1322,7 @@ export default function App() {
   useEffect(() => {
     try {
       sessionStorage.setItem('parlipro-session', JSON.stringify({
-        view, roomCode: config?.roomCode || null, spectatorCode
+        view, roomCode: config?.roomCode || null, spectatorCode, competitorInfo
       }));
     } catch(e) {}
   }, [view, config, spectatorCode]);
@@ -1112,9 +1366,10 @@ export default function App() {
     setView("active");
   };
 
-  if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onRejoinPO={handleRejoinPO} />;
+  if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={(cfg) => { setConfig(cfg); setView("active"); }} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
+  if (view === "competitor" && competitorInfo) return <CompetitorView roomCode={competitorInfo.roomCode} studentId={competitorInfo.studentId} studentName={competitorInfo.studentName} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} />;
   return null;
 }

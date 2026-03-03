@@ -1,8 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, onValue, ref, remove, set, update } from 'firebase/database';
+import { getDatabase, onValue, ref, remove, update } from 'firebase/database';
 
-// ⚠️ REPLACE THIS with your real Firebase config from the Firebase Console
-// See FIREBASE_SETUP.md for instructions
+// Replace with your real Firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyDEeij30fHJwxK5BQRbo2xMCECmp1dNkO4",
   authDomain: "parlipro-fd42b.firebaseapp.com",
@@ -17,25 +16,21 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Write entire room state
 export function writeRoomState(roomCode, state) {
-  return set(ref(db, `rooms/${roomCode}`), {
+  return update(ref(db, `rooms/${roomCode}`), {
     ...state,
     updatedAt: Date.now()
   });
 }
 
-// Subscribe to room state changes
 export function subscribeToRoom(roomCode, callback) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   const unsub = onValue(roomRef, (snapshot) => {
-    const data = snapshot.val();
-    callback(data);
+    callback(snapshot.val());
   });
   return unsub;
 }
 
-// Check if a room exists
 export function checkRoomExists(roomCode, callback) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   onValue(roomRef, (snapshot) => {
@@ -43,7 +38,6 @@ export function checkRoomExists(roomCode, callback) {
   }, { onlyOnce: true });
 }
 
-// Get room data once (for PO rejoin)
 export function getRoomOnce(roomCode, callback) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   onValue(roomRef, (snapshot) => {
@@ -51,22 +45,18 @@ export function getRoomOnce(roomCode, callback) {
   }, { onlyOnce: true });
 }
 
-// Delete a room
 export function deleteRoom(roomCode) {
   return remove(ref(db, `rooms/${roomCode}`));
 }
 
-// Update just the speech elapsed time (lightweight, called every second)
 export function updateRoomElapsed(roomCode, elapsed) {
   return update(ref(db, `rooms/${roomCode}`), { speechElapsed: elapsed, updatedAt: Date.now() });
 }
 
-// Update PO heartbeat (called every few seconds by active PO)
 export function updateHeartbeat(roomCode) {
   return update(ref(db, `rooms/${roomCode}`), { poHeartbeat: Date.now() });
 }
 
-// Clean up rooms not updated in the last 24 hours
 export function cleanupStaleRooms() {
   const roomsRef = ref(db, 'rooms');
   onValue(roomsRef, (snapshot) => {
@@ -80,4 +70,14 @@ export function cleanupStaleRooms() {
       }
     });
   }, { onlyOnce: true });
+}
+
+// Competitor: set speech/question intent
+export function updateCompetitorIntent(roomCode, studentId, intentType, value) {
+  return update(ref(db, `rooms/${roomCode}/competitorIntents/${studentId}`), { [intentType]: value });
+}
+
+// Competitor: set split for a bill
+export function updateCompetitorSplit(roomCode, studentId, billId, side) {
+  return update(ref(db, `rooms/${roomCode}/splits/${studentId}`), { [billId]: side });
 }
