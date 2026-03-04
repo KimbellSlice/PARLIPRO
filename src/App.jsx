@@ -985,7 +985,7 @@ function ActiveRound({ config, onCloseRoom }) {
 }
 
 // ═══ SPECTATOR VIEW ═══
-function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO }) {
+function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO, onSelectName }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
@@ -993,6 +993,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [wantSpeech, setWantSpeech] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
+  const [showNamePicker, setShowNamePicker] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const isCompetitor = !!competitorId;
@@ -1138,10 +1139,26 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               )}
             </div>
           )}
-          {!isCompetitor && statePoStudentId && (() => { const poSt = getStudent(statePoStudentId); return poSt ? (
+          {!isCompetitor && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>PO:</span>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>{poSt.name}</span>
+              {statePoStudentId && (() => { const poSt = getStudent(statePoStudentId); return poSt ? (
+                <><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>PO:</span><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>{poSt.name}</span></>
+              ) : null; })()}
+              {showNamePicker ? (
+                <div style={{ position: "relative" }}>
+                  <select onChange={e => { if (e.target.value) { const s = students.find(st => String(st.id) === e.target.value); if (s && onSelectName) { onSelectName(roomCode, s.id, s.name); } } setShowNamePicker(false); }} defaultValue="" style={{ padding: "3px 6px", background: "#1e1b17", color: "#E8E0D0", border: `1px solid ${GOLD}`, borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", maxWidth: 140 }}>
+                    <option value="" disabled>Select name...</option>
+                    {students.filter(s => s.id !== statePoStudentId).map(s => {
+                      const claim = (state?.competitorClaims || {})[fbSafe(s.id)];
+                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000) || s.id === statePoStudentId;
+                      return <option key={s.id} value={s.id} disabled={taken}>{s.name}{taken ? " (taken)" : ""}</option>;
+                    })}
+                  </select>
+                  <button onClick={() => setShowNamePicker(false)} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer", marginLeft: 2 }}>×</button>
+                </div>
+              ) : (
+                <button onClick={() => setShowNamePicker(true)} style={{ padding: "3px 8px", background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Select Name</button>
+              )}
               {!showPinEntry ? (
                 <button onClick={() => setShowPinEntry(true)} style={{ padding: "3px 8px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Claim PO</button>
               ) : (
@@ -1152,7 +1169,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
                 </div>
               )}
             </div>
-          ) : null; })()}
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
@@ -1408,7 +1425,8 @@ export default function App() {
     }).catch(err => { console.error("Failed to create room:", err); });
   }} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
-  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} />;
-  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} />;
+  const handleSelectName = (code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setSpectatorCode(null); setView("competitor"); };
+  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
+  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
   return null;
 }
