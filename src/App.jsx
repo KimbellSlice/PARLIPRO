@@ -319,8 +319,8 @@ function SetupPhase({ onStart }) {
         {step === "seating" && (<>
           {students.length < 2 ? <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least 2 students in the Roster tab first.</div> : (<>
             <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div><label style={LS}>Columns</label><select value={cols} onChange={e => setCols(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
-              <div><label style={LS}>Rows</label><select value={rows} onChange={e => setRows(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+              <div><label style={LS}>Columns</label><select value={cols} onChange={e => setCols(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[3, 4, 5, 6, 7].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+              <div><label style={LS}>Rows</label><select value={rows} onChange={e => setRows(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
               <div><label style={LS}>Front</label><div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>{[{ k: "top", a: "▲" }, { k: "bottom", a: "▼" }, { k: "left", a: "◀" }, { k: "right", a: "▶" }].map(o => (<button key={o.k} onClick={() => setFrontSide(o.k)} style={{ padding: "7px 10px", background: frontSide === o.k ? GOLD : "transparent", color: frontSide === o.k ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: frontSide === o.k ? 600 : 400, cursor: "pointer" }}>{o.a}</button>))}</div></div>
             </div>
             <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Drag to rearrange.</p>
@@ -1323,23 +1323,15 @@ export default function App() {
   const [createdRoomPin, setCreatedRoomPin] = useState(null);
   const isMobile = useIsMobile();
 
-  // Global animations
+  // Global animations and scroll fix
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-    *:focus-visible { outline: 2px solid #D4A843 !important; outline-offset: 2px; }`;
+    *:focus-visible { outline: 2px solid #D4A843 !important; outline-offset: 2px; }
+    html, body, #root, #__next { height: auto !important; min-height: 100vh; overflow-x: hidden; overflow-y: auto !important; }`;
     document.head.appendChild(style);
     return () => { document.head.removeChild(style); };
   }, []);
-
-  // Force scrollability on mobile
-  useEffect(() => {
-    if (!isMobile) return;
-    const style = document.createElement("style");
-    style.textContent = `html, body, #root, #__next { height: auto !important; overflow: visible !important; }`;
-    document.head.appendChild(style);
-    return () => { document.head.removeChild(style); };
-  }, [isMobile]);
 
   // Restore PO session on refresh
   useEffect(() => {
