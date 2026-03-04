@@ -632,6 +632,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const docketInputRef = useRef(null);
   const [speechStartTime, setSpeechStartTime] = useState(restored?.speechStartTime || null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showPrec, setShowPrec] = useState(!isMobile);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
   const isMobile = useIsMobile();
@@ -953,7 +954,12 @@ function ActiveRound({ config, onCloseRoom }) {
         <LogTab history={history} />
       )}
       {activeTab === "main" && !roundComplete && (
-        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10, maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", zIndex: 10 }}>
+          <button onClick={() => setShowPrec(p => !p)} style={{ width: "100%", padding: isMobile ? "6px 12px" : "8px 20px", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase" }}>Precedence</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{showPrec ? "▼" : "▲"}</span>
+          </button>
+          {showPrec && (<div style={{ padding: isMobile ? "0 12px 8px" : "0 20px 10px", maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 20 }}>
             <div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
@@ -977,6 +983,7 @@ function ActiveRound({ config, onCloseRoom }) {
               ))}
             </div>
           </div>
+          </div>)}
         </div>
       )}
       {profanity.Toast}
@@ -994,6 +1001,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const [wantSpeech, setWantSpeech] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [showNamePicker, setShowNamePicker] = useState(false);
+  const [showPrec, setShowPrec] = useState(!isMobile);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const isCompetitor = !!competitorId;
@@ -1276,7 +1284,12 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <LogTab history={history} />
       )}
       {activeTab === "main" && !roundComplete && (
-        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10, maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", zIndex: 10 }}>
+          <button onClick={() => setShowPrec(p => !p)} style={{ width: "100%", padding: isMobile ? "6px 12px" : "8px 20px", background: "transparent", border: "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer" }}>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase" }}>Precedence</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{showPrec ? "▼" : "▲"}</span>
+          </button>
+          {showPrec && (<div style={{ padding: isMobile ? "0 12px 8px" : "0 20px 10px", maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 20 }}>
             <div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
@@ -1300,6 +1313,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               ))}
             </div>
           </div>
+          </div>)}
         </div>
       )}
     </div>
