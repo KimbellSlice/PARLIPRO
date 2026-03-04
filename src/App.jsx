@@ -1038,7 +1038,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
   useEffect(() => {
     const unsub = subscribeToRoom(roomCode, (data) => {
-      if (data) { setState(data); setDisconnected(false); }
+      if (data && data.students) { setState(data); setDisconnected(false); }
       else setDisconnected(true);
     });
     return unsub;
@@ -1046,21 +1046,21 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
   // Competitor: claim name heartbeat
   useEffect(() => {
-    if (!isCompetitor) return;
+    if (!isCompetitor || disconnected) return;
     claimCompetitorName(roomCode, competitorId).catch(console.error);
     const iv = setInterval(() => {
       claimCompetitorName(roomCode, competitorId).catch(console.error);
     }, 5000);
     return () => {
       clearInterval(iv);
-      releaseCompetitorName(roomCode, competitorId).catch(console.error);
+      if (!disconnected) releaseCompetitorName(roomCode, competitorId).catch(console.error);
     };
-  }, [roomCode, competitorId, isCompetitor]);
+  }, [roomCode, competitorId, isCompetitor, disconnected]);
 
   // Competitor: sync intents to Firebase
   useEffect(() => {
-    if (isCompetitor && state) updateCompetitorIntent(roomCode, competitorId, "speech", wantSpeech).catch(console.error);
-  }, [wantSpeech, roomCode, competitorId, isCompetitor, state]);
+    if (isCompetitor && state && !disconnected) updateCompetitorIntent(roomCode, competitorId, "speech", wantSpeech).catch(console.error);
+  }, [wantSpeech, roomCode, competitorId, isCompetitor, state, disconnected]);
 
 
 
