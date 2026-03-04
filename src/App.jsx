@@ -953,17 +953,29 @@ function ActiveRound({ config, onCloseRoom }) {
         <LogTab history={history} />
       )}
       {activeTab === "main" && !roundComplete && (
-        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10 }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
-          <div style={{ display: "flex", gap: isMobile ? 4 : 6, overflowX: "auto", paddingBottom: 2 }}>
-            {sortPrec(students.filter(s => s.id !== poStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
-              <div key={s.id} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: isMobile ? "4px 6px" : "4px 8px", background: hasIntent ? `${GOLD}20` : "#2a2520", border: hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 5 }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358" }}>{idx + 1}</span>
-                <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", whiteSpace: "nowrap" }}>{s.name}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>{s.speeches||0}</span>
-                {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
-              </div>
-            ); })}
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10, maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 20 }}>
+            <div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
+              {sortPrec(students.filter(s => s.id !== poStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 3, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358", width: 14, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span>
+                  <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span>
+                  {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", flexShrink: 0 }}>{s.speeches||0}</span>
+                </div>
+              ); })}
+            </div>
+            <div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Question Precedence</div>
+              {sortPrec(students.filter(s => s.id !== poStudentId), "question", questionPrec).map((s, idx) => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", marginBottom: 1 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? "#7BA3BF" : "#6b6358", width: 14, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span>
+                  <span style={{ fontSize: isMobile ? 10 : 11, color: idx === 0 ? "#7BA3BF" : "#9B917F", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</span>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", flexShrink: 0 }}>{s.questions||0}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -1050,7 +1062,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
   const elapsed = state?.activeSpeech ? (state?.speechElapsed || 0) : 0;
 
-  if (!state) {
+  if (!state || disconnected) {
     return (
       <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <link href={FONTS_LINK} rel="stylesheet" />
@@ -1206,27 +1218,29 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
       ) : activeTab === "docket" ? (
         isCompetitor ? (
-          <div style={{ padding: isMobile ? 12 : 24, maxWidth: 600, margin: "0 auto" }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>My Splits</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>My Splits</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {docket.map((b, i) => {
                 const mySplit = (splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "";
                 const totals = getSplitTotals(b.id);
                 const isPast = !!b.status;
                 return (
-                  <div key={b.id || i} style={{ padding: "12px 14px", background: "#2a2520", borderRadius: 8, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: isPast ? 0 : 8 }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>{i + 1}.</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
-                      {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
-                      {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                  <div key={b.id || i} style={{ padding: isMobile ? "16px" : "20px", background: "#2a2520", borderRadius: 10, border: i === currentBillIdx && !roundComplete ? `2px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: isPast ? 0 : 14 }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", fontWeight: 600 }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{b.name}</span>
+                      {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
                     </div>
                     {!isPast && (
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {["aff", "neg", "both"].map(opt => (
-                          <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: "8px 0", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `1px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
-                        ))}
-                      </div>
+                      <>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {["aff", "neg", "both"].map(opt => (
+                            <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: isMobile ? "14px 0" : "16px 0", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `2px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 14 : 15, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
+                          ))}
+                        </div>
+                        {totals && <div style={{ marginTop: 10, fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", textAlign: "center" }}>Chamber: <span style={{ color: "#5AE89A", fontWeight: 600 }}>{totals.aff} Aff</span> / <span style={{ color: "#E8A0A0", fontWeight: 600 }}>{totals.neg} Neg</span></div>}
+                      </>
                     )}
                   </div>
                 );
@@ -1242,17 +1256,29 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <LogTab history={history} />
       )}
       {activeTab === "main" && !roundComplete && (
-        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10 }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
-          <div style={{ display: "flex", gap: isMobile ? 4 : 6, overflowX: "auto", paddingBottom: 2 }}>
-            {sortPrec(students.filter(s => s.id !== statePoStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
-              <div key={s.id} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: isMobile ? "4px 6px" : "4px 8px", background: hasIntent ? `${GOLD}20` : "#2a2520", border: hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 5 }}>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358" }}>{idx + 1}</span>
-                <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", whiteSpace: "nowrap" }}>{s.name}{isCompetitor && s.id === competitorId ? " ★" : ""}</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>{s.speeches||0}</span>
-                {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
-              </div>
-            ); })}
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10, maxHeight: isMobile ? "35vh" : "30vh", overflowY: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: isMobile ? 10 : 20 }}>
+            <div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
+              {sortPrec(students.filter(s => s.id !== statePoStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 3, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358", width: 14, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span>
+                  <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{isCompetitor && s.id === competitorId ? " ★" : ""}</span>
+                  {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", flexShrink: 0 }}>{s.speeches||0}</span>
+                </div>
+              ); })}
+            </div>
+            <div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#7BA3BF", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Question Precedence</div>
+              {sortPrec(students.filter(s => s.id !== statePoStudentId), "question", questionPrec).map((s, idx) => (
+                <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "2px 4px", marginBottom: 1 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? "#7BA3BF" : "#6b6358", width: 14, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span>
+                  <span style={{ fontSize: isMobile ? 10 : 11, color: idx === 0 ? "#7BA3BF" : "#9B917F", flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{isCompetitor && s.id === competitorId ? " ★" : ""}</span>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", flexShrink: 0 }}>{s.questions||0}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
