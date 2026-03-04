@@ -933,7 +933,6 @@ function ActiveRound({ config, onCloseRoom }) {
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
             </div>)}
             {sortedSeekers.length === 0 && !showPQConfirm && !(mode === "speech" && !activeSpeech && activeSeekers.length === 0) && (<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : mode === "question" ? "Tap students for question queue" : "Select seekers"}</div>)}
-            {activeSeekers.length === 0 && !activeSpeech && !showPQConfirm && (<div style={{ marginTop: isMobile ? 12 : "auto", paddingTop: 14, borderTop: "1px solid #2a2520" }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>{sortPrec(students.filter(s => s.id !== poStudentId), mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>seeking</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}</div>)}
           </div>
           )}
         </div>
@@ -953,6 +952,21 @@ function ActiveRound({ config, onCloseRoom }) {
       ) : (
         <LogTab history={history} />
       )}
+      {activeTab === "main" && !roundComplete && (
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
+          <div style={{ display: "flex", gap: isMobile ? 4 : 6, overflowX: "auto", paddingBottom: 2 }}>
+            {sortPrec(students.filter(s => s.id !== poStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
+              <div key={s.id} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: isMobile ? "4px 6px" : "4px 8px", background: hasIntent ? `${GOLD}20` : "#2a2520", border: hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 5 }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358" }}>{idx + 1}</span>
+                <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", whiteSpace: "nowrap" }}>{s.name}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>{s.speeches||0}</span>
+                {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
+              </div>
+            ); })}
+          </div>
+        </div>
+      )}
       {profanity.Toast}
     </div>
   );
@@ -966,7 +980,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const isMobile = useIsMobile();
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [wantSpeech, setWantSpeech] = useState(false);
-  const [wantQuestion, setWantQuestion] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
@@ -999,9 +1012,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
     if (isCompetitor && state) updateCompetitorIntent(roomCode, competitorId, "speech", wantSpeech).catch(console.error);
   }, [wantSpeech, roomCode, competitorId, isCompetitor, state]);
 
-  useEffect(() => {
-    if (isCompetitor && state) updateCompetitorIntent(roomCode, competitorId, "question", wantQuestion).catch(console.error);
-  }, [wantQuestion, roomCode, competitorId, isCompetitor, state]);
+
 
   // Reset all speech intents when a new speaker is recognized
   useEffect(() => {
@@ -1013,12 +1024,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
     prevSpeechRef.current = currentSpeaker;
   }, [state?.activeSpeech?.studentId]);
 
-  // Reset question intent when leaving question period
-  useEffect(() => {
-    if (state && !state.activeSpeech && state.mode === "speech") {
-      setWantQuestion(false);
-    }
-  }, [state]);
+
 
   // Competitor: handle split changes
   const handleSplitChange = (billId, side) => {
@@ -1109,8 +1115,32 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
                 <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{competitorName}</span>
               </div>
               <button onClick={() => { releaseCompetitorName(roomCode, competitorId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>switch</button>
+              {!showPinEntry ? (
+                <button onClick={() => setShowPinEntry(true)} style={{ padding: "3px 8px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Claim PO</button>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ width: 56, background: "#1e1b17", color: "#E8E0D0", border: pinError ? "1px solid #C45A5A" : "1px solid #3a3530", borderRadius: 4, padding: "3px 6px", fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "center", letterSpacing: "0.15em" }} />
+                  <button onClick={handleClaimPO} disabled={pin.length !== 4} style={{ padding: "3px 8px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Go</button>
+                  <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer" }}>×</button>
+                </div>
+              )}
             </div>
           )}
+          {!isCompetitor && statePoStudentId && (() => { const poSt = getStudent(statePoStudentId); return poSt ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>PO:</span>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>{poSt.name}</span>
+              {!showPinEntry ? (
+                <button onClick={() => setShowPinEntry(true)} style={{ padding: "3px 8px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Claim PO</button>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ width: 56, background: "#1e1b17", color: "#E8E0D0", border: pinError ? "1px solid #C45A5A" : "1px solid #3a3530", borderRadius: 4, padding: "3px 6px", fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "center", letterSpacing: "0.15em" }} />
+                  <button onClick={handleClaimPO} disabled={pin.length !== 4} style={{ padding: "3px 8px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Go</button>
+                  <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer" }}>×</button>
+                </div>
+              )}
+            </div>
+          ) : null; })()}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
@@ -1137,28 +1167,20 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
             {!activeSpeech && mode === "speech" && !roundComplete && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase" }}>Awaiting speakers</span></div>)}
 
-            {/* Competitor: seek recognition / question */}
-            {isCompetitor && !roundComplete && (
-              <div style={{ marginBottom: 16 }}>
-                {!hasSpeech && mode === "speech" && (() => {
-                  const nextLabel = getNextSpeechLabel();
-                  return (
-                    <div style={{ background: "#2a2520", borderRadius: 8, border: wantSpeech ? `1px solid ${GOLD}` : "1px solid #3a3530", padding: "12px 16px" }}>
-                      {nextLabel && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginBottom: 8 }}>Next speech: <span style={{ color: GOLD }}>{nextLabel}</span></div>}
-                      <button onClick={() => setWantSpeech(w => !w)} style={{ width: "100%", padding: "10px 0", background: wantSpeech ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "transparent", color: wantSpeech ? "#1a1714" : GOLD, border: wantSpeech ? "none" : `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantSpeech ? "Indicated Interest" : "Indicate Interest in Next Speech"}</button>
-                    </div>
-                  );
-                })()}
-                {hasSpeech && (
-                  <div style={{ background: "#2a2520", borderRadius: 8, border: wantQuestion ? "1px solid #7BA3BF" : "1px solid #3a3530", padding: "12px 16px" }}>
-                    <button onClick={() => setWantQuestion(q => !q)} style={{ width: "100%", padding: "10px 0", background: wantQuestion ? "linear-gradient(135deg, #4A7D9F, #3A6D8F)" : "transparent", color: wantQuestion ? "#1a1714" : "#7BA3BF", border: wantQuestion ? "none" : "1px solid #7BA3BF", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantQuestion ? "Indicated Interest in Questioning" : "Indicate Interest in Questioning"}</button>
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Seating Chart */}
             <SeatingGrid students={students} seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} interactive={false} locked={true} seekers={seekers} activeSpeech={activeSpeech} isMobile={isMobile} poStudentId={statePoStudentId} />
+
+            {/* Competitor: indicate interest in next speech */}
+            {isCompetitor && !roundComplete && mode === "speech" && (() => {
+              const nextLabel = getNextSpeechLabel();
+              return (
+                <div style={{ marginTop: 12, background: "#2a2520", borderRadius: 8, border: wantSpeech ? `1px solid ${GOLD}` : "1px solid #3a3530", padding: "10px 14px" }}>
+                  {nextLabel && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginBottom: 6 }}>Next speech: <span style={{ color: GOLD }}>{nextLabel}</span></div>}
+                  <button onClick={() => setWantSpeech(w => !w)} style={{ width: "100%", padding: "10px 0", background: wantSpeech ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "transparent", color: wantSpeech ? "#1a1714" : GOLD, border: wantSpeech ? "none" : `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{wantSpeech ? "Indicated Interest" : "Indicate Interest in Next Speech"}</button>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Queue panel */}
@@ -1175,25 +1197,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>{s.speeches||0}sp {s.questions||0}q</div></div></div></div>); })}
               </div>
             ) : (
-              <div style={{ paddingTop: 8 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>Full {mode} Precedence</div>
-              {sortPrec(students.filter(s => s.id !== statePoStudentId), mode, questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = mode === "speech" ? intent.speech : intent.question; return (<div key={s.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "3px 6px", fontSize: 12, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#6b6358", background: hasIntent ? `${GOLD}15` : "transparent", borderRadius: 4, border: hasIntent ? `1px solid ${GOLD}33` : "1px solid transparent", marginBottom: 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, width: 16, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontWeight: hasIntent ? 600 : 400 }}>{s.name}{isCompetitor && s.id === competitorId ? " (you)" : ""}</span>{hasIntent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 7, color: GOLD, textTransform: "uppercase" }}>interested</span>}<span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10 }}>{mode === "speech" ? (s.speeches||0) : (s.questions||0)}</span></div>); })}
-              </div>
-            )}
-
-            {/* Claim PO button */}
-            {showPinEntry ? (
-              <div style={{ marginTop: 16, padding: 12, background: "#2a2520", borderRadius: 8, border: `1px solid ${GOLD}` }}>
-                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", marginBottom: 8 }}>Enter PO PIN</div>
-                <div style={{ display: "flex", gap: 6 }}>
-                  <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ flex: 1, background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 4, padding: "8px", fontFamily: "'DM Mono', monospace", fontSize: 14, textAlign: "center", letterSpacing: "0.2em" }} />
-                  <button onClick={handleClaimPO} disabled={pin.length !== 4} style={{ padding: "8px 14px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Go</button>
-                </div>
-                {pinError && <div style={{ fontSize: 10, color: "#C45A5A", fontFamily: "'DM Mono', monospace", marginTop: 4 }}>{pinError}</div>}
-                <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ marginTop: 6, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Cancel</button>
-              </div>
-            ) : (
-              <button onClick={() => setShowPinEntry(true)} style={{ marginTop: 16, width: "100%", padding: "8px 0", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Claim PO Role</button>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4a4540", fontStyle: "italic", fontSize: 13, textAlign: "center", padding: 20 }}>{activeSpeech ? "Speech in progress" : "Awaiting speakers"}</div>
             )}
           </div>
           )}
@@ -1236,6 +1240,21 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : (
         <LogTab history={history} />
+      )}
+      {activeTab === "main" && !roundComplete && (
+        <div style={{ position: "sticky", bottom: 0, background: "#1e1b17", borderTop: "1px solid #2a2520", padding: isMobile ? "8px 12px" : "10px 20px", zIndex: 10 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Speech Precedence</div>
+          <div style={{ display: "flex", gap: isMobile ? 4 : 6, overflowX: "auto", paddingBottom: 2 }}>
+            {sortPrec(students.filter(s => s.id !== statePoStudentId), "speech", questionPrec).map((s, idx) => { const intent = competitorIntents[fbSafe(s.id)] || {}; const hasIntent = intent.speech; return (
+              <div key={s.id} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 4, padding: isMobile ? "4px 6px" : "4px 8px", background: hasIntent ? `${GOLD}20` : "#2a2520", border: hasIntent ? `1px solid ${GOLD}44` : "1px solid #3a3530", borderRadius: 5 }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: idx === 0 ? GOLD : "#6b6358" }}>{idx + 1}</span>
+                <span style={{ fontSize: isMobile ? 10 : 11, fontWeight: hasIntent ? 600 : 400, color: hasIntent ? GOLD : idx === 0 ? GOLD : "#9B917F", whiteSpace: "nowrap" }}>{s.name}{isCompetitor && s.id === competitorId ? " ★" : ""}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>{s.speeches||0}</span>
+                {hasIntent && <span style={{ width: 5, height: 5, borderRadius: "50%", background: GOLD, flexShrink: 0 }} />}
+              </div>
+            ); })}
+          </div>
+        </div>
       )}
     </div>
   );
