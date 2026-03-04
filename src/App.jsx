@@ -1319,8 +1319,15 @@ export default function App() {
     const style = document.createElement("style");
     style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     *:focus-visible { outline: 2px solid #D4A843 !important; outline-offset: 2px; }
-    html, body, #root, #__next { height: auto !important; min-height: 100vh; overflow-x: hidden; overflow-y: auto !important; }`;
+    html { height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; }
+    body { height: auto !important; min-height: 100vh !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; display: block !important; place-items: unset !important; margin: 0 !important; }
+    #root, #__next, #app { height: auto !important; min-height: 100vh !important; overflow: visible !important; max-width: none !important; padding: 0 !important; width: 100% !important; }`;
     document.head.appendChild(style);
+    // Also directly fix inline styles
+    document.documentElement.style.cssText += "; overflow: auto !important; height: auto !important;";
+    document.body.style.cssText += "; overflow: auto !important; height: auto !important; display: block !important;";
+    const root = document.getElementById("root");
+    if (root) root.style.cssText += "; height: auto !important; overflow: visible !important; max-width: none !important; padding: 0 !important;";
     return () => { document.head.removeChild(style); };
   }, []);
 
