@@ -1235,7 +1235,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
       ) : activeTab === "docket" ? (
         isCompetitor ? (
-          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto", minWidth: isMobile ? undefined : 480 }}>
             <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>My Splits</div>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {docket.map((b, i) => {
@@ -1251,9 +1251,9 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
                     </div>
                     {!isPast && (
                       <>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 10, minWidth: 280 }}>
                           {["aff", "neg", "both"].map(opt => (
-                            <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: isMobile ? "14px 0" : "16px 0", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `2px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 14 : 15, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
+                            <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: isMobile ? "16px 12px" : "18px 16px", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `2px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 14 : 15, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
                           ))}
                         </div>
                         {totals && <div style={{ marginTop: 10, fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", textAlign: "center" }}>Chamber: <span style={{ color: "#5AE89A", fontWeight: 600 }}>{totals.aff} Aff</span> / <span style={{ color: "#E8A0A0", fontWeight: 600 }}>{totals.neg} Neg</span></div>}
