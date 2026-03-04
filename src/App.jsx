@@ -1320,15 +1320,48 @@ export default function App() {
     style.textContent = `@keyframes profanityFadeIn { from { opacity: 0; transform: translateX(-50%) translateY(8px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
     *:focus-visible { outline: 2px solid #D4A843 !important; outline-offset: 2px; }
     html { height: auto !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; }
-    body { height: auto !important; min-height: 100vh !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; display: block !important; place-items: unset !important; margin: 0 !important; }
-    #root, #__next, #app { height: auto !important; min-height: 100vh !important; overflow: visible !important; max-width: none !important; padding: 0 !important; width: 100% !important; }`;
+    body { height: auto !important; min-height: 100vh !important; overflow-y: auto !important; overflow-x: hidden !important; -webkit-overflow-scrolling: touch !important; display: block !important; place-items: unset !important; margin: 0 !important; position: static !important; }
+    #root, #__next, #app { height: auto !important; min-height: 100vh !important; overflow: visible !important; max-width: none !important; padding: 0 !important; width: 100% !important; position: static !important; }`;
     document.head.appendChild(style);
-    // Also directly fix inline styles
-    document.documentElement.style.cssText += "; overflow: auto !important; height: auto !important;";
-    document.body.style.cssText += "; overflow: auto !important; height: auto !important; display: block !important;";
+    // Disable any project CSS that might block scrolling
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+      if (el === style) return;
+      const text = el.textContent || "";
+      if (text.includes("overflow") || text.includes("100vh") || text.includes("place-items")) {
+        el.disabled = true;
+      }
+    });
+    // Force inline styles
+    document.documentElement.setAttribute("style", "overflow: auto !important; height: auto !important;");
+    document.body.setAttribute("style", "overflow: auto !important; height: auto !important; display: block !important; margin: 0 !important;");
     const root = document.getElementById("root");
-    if (root) root.style.cssText += "; height: auto !important; overflow: visible !important; max-width: none !important; padding: 0 !important;";
-    return () => { document.head.removeChild(style); };
+    if (root) root.setAttribute("style", "height: auto !important; overflow: visible !important; max-width: none !important; padding: 0 !important;");
+    // Fix scroll wheel — something is calling preventDefault on wheel/touch events
+    // Re-register a passive wheel listener on the capturing phase to ensure scroll works
+    const forceScroll = (e) => {
+      // Don't interfere if we're inside a horizontally scrollable container
+      if (e.target.closest && e.target.closest('[data-scroll-x]')) return;
+    };
+    window.addEventListener("wheel", forceScroll, { capture: true, passive: true });
+    window.addEventListener("touchmove", forceScroll, { capture: true, passive: true });
+    // Also break any non-passive wheel listeners that other code may have added
+    const origAdd = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function(type, fn, opts) {
+      if (type === "wheel" || type === "touchmove") {
+        if (typeof opts === "object" && opts !== null) {
+          opts = { ...opts, passive: true };
+        } else if (typeof opts === "boolean" || opts === undefined) {
+          opts = { capture: !!opts, passive: true };
+        }
+      }
+      return origAdd.call(this, type, fn, opts);
+    };
+    return () => {
+      document.head.removeChild(style);
+      window.removeEventListener("wheel", forceScroll, { capture: true });
+      window.removeEventListener("touchmove", forceScroll, { capture: true });
+      EventTarget.prototype.addEventListener = origAdd;
+    };
   }, []);
 
   // Restore PO session on refresh
