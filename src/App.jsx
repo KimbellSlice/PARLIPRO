@@ -1030,6 +1030,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [showNamePicker, setShowNamePicker] = useState(false);
   const [showPrec, setShowPrec] = useState(!isMobile);
+  const [expandedSplitBill, setExpandedSplitBill] = useState(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const isCompetitor = !!competitorId;
@@ -1146,7 +1147,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
     });
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
-  const [expandedSplitBill, setExpandedSplitBill] = useState(null);
   const getSplitNames = (billId) => {
     const affNames = [], negNames = [];
     Object.entries(splits).forEach(([safeId, studentSplits]) => {
