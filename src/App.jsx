@@ -831,7 +831,7 @@ function ActiveRound({ config, onCloseRoom }) {
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
             {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
-            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poName} · {displayName}</div>}
+            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poStudentId ? (students.find(s => s.id === poStudentId)?.name || poName) : poName} · {displayName}</div>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
