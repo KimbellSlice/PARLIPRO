@@ -23,6 +23,14 @@ export function writeRoomState(roomCode, state) {
   });
 }
 
+// Create a new room (uses set to establish the full node)
+export function createRoom(roomCode, state) {
+  return set(ref(db, `rooms/${roomCode}`), {
+    ...state,
+    updatedAt: Date.now()
+  });
+}
+
 export function subscribeToRoom(roomCode, callback) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   const unsub = onValue(roomRef, (snapshot) => {
