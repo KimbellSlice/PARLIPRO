@@ -632,10 +632,10 @@ function ActiveRound({ config, onCloseRoom }) {
   const docketInputRef = useRef(null);
   const [speechStartTime, setSpeechStartTime] = useState(restored?.speechStartTime || null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
-  const [showPrec, setShowPrec] = useState(!isMobile);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
   const isMobile = useIsMobile();
+  const [showPrec, setShowPrec] = useState(!isMobile);
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [showNextSpeechConfirm, setShowNextSpeechConfirm] = useState(false);
   const [inQuestionPeriod, setInQuestionPeriod] = useState(restored?.inQuestionPeriod || false);
