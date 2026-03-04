@@ -524,7 +524,8 @@ function LogTab({ history }) {
   );
 }
 
-function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits }) {
+function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students }) {
+  const [expandedBill, setExpandedBill] = useState(null);
   const getSplitTotals = (billId) => {
     if (!splits) return null;
     let aff = 0, neg = 0;
@@ -536,20 +537,47 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
     });
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
+  const getSplitNames = (billId) => {
+    if (!splits || !students) return { aff: [], neg: [] };
+    const affNames = [], negNames = [];
+    Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      const side = studentSplits[fbSafe(billId)];
+      const student = students.find(s => fbSafe(s.id) === safeId);
+      const name = student ? student.name : safeId;
+      if (side === "aff") affNames.push(name);
+      else if (side === "neg") negNames.push(name);
+      else if (side === "both") { affNames.push(name); negNames.push(name); }
+    });
+    return { aff: affNames, neg: negNames };
+  };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
       <div style={{ maxWidth: 500, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>{editable ? "Edit Docket" : "Docket"}</div>
         {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." aria-label="Add bill name" style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; return (
-            <div key={b.id || idx} style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
+          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; const totals = getSplitTotals(b.id); const isExpanded = expandedBill === b.id; return (
+            <div key={b.id || idx}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
-              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: totals ? "pointer" : "default" }} onClick={() => totals && setExpandedBill(isExpanded ? null : b.id)}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
-                {(() => { const t = getSplitTotals(b.id); return t ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600 }}><span style={{ color: "#5AE89A" }}>{t.aff}A</span>/<span style={{ color: "#C45A5A" }}>{t.neg}N</span></span> : null; })()}
+                {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600 }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span> <span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
+            </div>
+            {isExpanded && (() => { const names = getSplitNames(b.id); return (
+              <div style={{ marginLeft: 30, marginTop: 4, marginBottom: 4, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Affirmative ({names.aff.length})</div>
+                  {names.aff.length > 0 ? names.aff.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                </div>
+                <div>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Negative ({names.neg.length})</div>
+                  {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                </div>
+              </div>
+            ); })()}
             </div>); })}
         </div>
       </div>
@@ -947,7 +975,7 @@ function ActiveRound({ config, onCloseRoom }) {
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : activeTab === "docket" ? (
-        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} />
+        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} />
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
       ) : (
@@ -1118,6 +1146,19 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
     });
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
+  const [expandedSplitBill, setExpandedSplitBill] = useState(null);
+  const getSplitNames = (billId) => {
+    const affNames = [], negNames = [];
+    Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      const side = studentSplits[fbSafe(billId)];
+      const student = students.find(s => fbSafe(s.id) === safeId);
+      const name = student ? student.name : safeId;
+      if (side === "aff") affNames.push(name);
+      else if (side === "neg") negNames.push(name);
+      else if (side === "both") { affNames.push(name); negNames.push(name); }
+    });
+    return { aff: affNames, neg: negNames };
+  };
 
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
@@ -1267,7 +1308,19 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
                             <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: isMobile ? "16px 12px" : "18px 16px", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `2px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 14 : 15, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
                           ))}
                         </div>
-                        {totals && <div style={{ marginTop: 10, fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", textAlign: "center" }}>Chamber: <span style={{ color: "#5AE89A", fontWeight: 600 }}>{totals.aff} Aff</span> / <span style={{ color: "#E8A0A0", fontWeight: 600 }}>{totals.neg} Neg</span></div>}
+                        {totals && <button onClick={() => setExpandedSplitBill(expandedSplitBill === b.id ? null : b.id)} style={{ marginTop: 10, width: "100%", padding: "6px 0", background: "transparent", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", cursor: "pointer", textAlign: "center" }}>Chamber: <span style={{ color: "#5AE89A", fontWeight: 600 }}>{totals.aff} Aff</span> / <span style={{ color: "#E8A0A0", fontWeight: 600 }}>{totals.neg} Neg</span> <span style={{ fontSize: 9, color: "#6b6358" }}>{expandedSplitBill === b.id ? "▲" : "▼"}</span></button>}
+                        {expandedSplitBill === b.id && (() => { const names = getSplitNames(b.id); return (
+                          <div style={{ marginTop: 8, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                            <div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Affirmative ({names.aff.length})</div>
+                              {names.aff.length > 0 ? names.aff.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                            </div>
+                            <div>
+                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Negative ({names.neg.length})</div>
+                              {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                            </div>
+                          </div>
+                        ); })()}
                       </>
                     )}
                   </div>
@@ -1276,7 +1329,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
             </div>
           </div>
         ) : (
-          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} />
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} />
         )
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
