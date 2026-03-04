@@ -1434,8 +1434,8 @@ export default function App() {
       setView("spectator");
     }).catch(err => { console.error("Failed to create room:", err); });
   }} />;
-  if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
   const handleSelectName = (code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setSpectatorCode(null); setView("competitor"); };
+  if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
   if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
   return null;
