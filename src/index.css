@@ -4,18 +4,26 @@
   padding: 0;
 }
 
-html, body, #root {
-  height: 100%;
+html {
   width: 100%;
+  min-height: 100%;
 }
 
 body {
+  width: 100%;
+  min-height: 100vh;
   background: #1a1714;
   color: #E8E0D0;
   font-family: 'Newsreader', Georgia, serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
 }
 
 /* Prevent pull-to-refresh on mobile */
