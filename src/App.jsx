@@ -1418,9 +1418,8 @@ export default function App() {
     setView("active");
   };
 
-  if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
-  if (view === "setup") return <SetupPhase onStart={(cfg) => {
-    // Write initial room state to Firebase
+  const handleSelectName = (code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setSpectatorCode(null); setView("competitor"); };
+  const handleSetupStart = (cfg) => {
     const initialState = {
       students: cfg.students, seatingSlots: cfg.seatingSlots, cols: cfg.cols, frontSide: cfg.frontSide,
       docket: cfg.docket, roomCode: cfg.roomCode, poName: "", roomName: cfg.roomName || "", poPin: cfg.poPin,
@@ -1433,8 +1432,10 @@ export default function App() {
       setSpectatorCode(cfg.roomCode);
       setView("spectator");
     }).catch(err => { console.error("Failed to create room:", err); });
-  }} />;
-  const handleSelectName = (code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setSpectatorCode(null); setView("competitor"); };
+  };
+
+  if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
+  if (view === "setup") return <SetupPhase onStart={handleSetupStart} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
   if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
