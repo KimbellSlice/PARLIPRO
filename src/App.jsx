@@ -260,7 +260,7 @@ function SetupPhase({ onStart }) {
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px", overflowY: "auto" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header role="banner" style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
         <Brand size="large" />
@@ -985,7 +985,7 @@ function ActiveRound({ config, onCloseRoom }) {
 }
 
 // ═══ SPECTATOR VIEW ═══
-function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO, onSelectName }) {
+function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO, onSelectName, createdPin, onDismissPin }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
@@ -1186,6 +1186,18 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         </div>
       </header>
 
+      {createdPin && (
+        <div style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}11)`, border: `1px solid ${GOLD}44`, borderRadius: 0, padding: isMobile ? "12px 16px" : "14px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
+            Room created! Share code <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{roomCode}</span>
+          </div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
+            PO PIN: <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{createdPin}</span>
+          </div>
+          <button onClick={onDismissPin} style={{ background: "none", border: "1px solid #6b6358", borderRadius: 4, color: "#9B917F", fontFamily: "'DM Mono', monospace", fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>Dismiss</button>
+        </div>
+      )}
+
       {activeTab === "main" && !roundComplete ? (
         <div style={{ display: isMobile ? "block" : "flex", flex: 1, overflow: isMobile ? undefined : "hidden" }}>
           <div style={{ flex: 1, padding: isMobile ? 12 : 20, overflow: isMobile ? undefined : "auto" }}>
@@ -1308,6 +1320,7 @@ export default function App() {
   const [config, setConfig] = useState(null);
   const [spectatorCode, setSpectatorCode] = useState(null);
   const [competitorInfo, setCompetitorInfo] = useState(null);
+  const [createdRoomPin, setCreatedRoomPin] = useState(null);
   const isMobile = useIsMobile();
 
   // Global animations
@@ -1420,6 +1433,7 @@ export default function App() {
       inQuestionPeriod: false, questionPrec: cfg.questionPrec, poStudentId: null, roundComplete: false,
     };
     createRoom(cfg.roomCode, initialState).then(() => {
+      setCreatedRoomPin(cfg.poPin);
       setSpectatorCode(cfg.roomCode);
       setView("spectator");
     }).catch(err => { console.error("Failed to create room:", err); });
@@ -1427,6 +1441,6 @@ export default function App() {
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
   const handleSelectName = (code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setSpectatorCode(null); setView("competitor"); };
   if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
-  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
+  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
   return null;
 }
