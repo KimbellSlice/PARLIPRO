@@ -550,12 +550,13 @@ function LogTab({ history }) {
   );
 }
 
-function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students }) {
+function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students, poStudentId }) {
   const [expandedBill, setExpandedBill] = useState(null);
   const getSplitTotals = (billId) => {
     if (!splits) return null;
     let aff = 0, neg = 0;
-    Object.values(splits).forEach(studentSplits => {
+    Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      if (poStudentId && safeId === fbSafe(poStudentId)) return;
       const s = studentSplits[fbSafe(billId)];
       if (s === "aff") aff++;
       else if (s === "neg") neg++;
@@ -567,6 +568,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
     if (!splits || !students) return { aff: [], neg: [] };
     const affNames = [], negNames = [];
     Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      if (poStudentId && safeId === fbSafe(poStudentId)) return;
       const side = studentSplits[fbSafe(billId)];
       const student = students.find(s => fbSafe(s.id) === safeId);
       const name = student ? student.name : safeId;
@@ -1020,7 +1022,7 @@ function ActiveRound({ config, onCloseRoom }) {
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
       ) : activeTab === "docket" ? (
-        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} />
+        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
       ) : (
@@ -1206,7 +1208,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
   const getSplitTotals = (billId) => {
     let aff = 0, neg = 0;
-    Object.values(splits).forEach(studentSplits => {
+    Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      if (statePoStudentId && safeId === fbSafe(statePoStudentId)) return;
       const s = studentSplits[fbSafe(billId)];
       if (s === "aff") aff++;
       else if (s === "neg") neg++;
@@ -1217,6 +1220,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const getSplitNames = (billId) => {
     const affNames = [], negNames = [];
     Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      if (statePoStudentId && safeId === fbSafe(statePoStudentId)) return;
       const side = studentSplits[fbSafe(billId)];
       const student = students.find(s => fbSafe(s.id) === safeId);
       const name = student ? student.name : safeId;
@@ -1403,7 +1407,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
             </div>
           </div>
         ) : (
-          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} />
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} poStudentId={statePoStudentId} />
         )
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
