@@ -877,6 +877,14 @@ function ActiveRound({ config, onCloseRoom }) {
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
             {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poStudentId ? (students.find(s => s.id === poStudentId)?.name || poName) : poName} · {displayName}</div>}
           </div>
+          {poStudentId && (() => { const poStudentName = students.find(s => s.id === poStudentId)?.name; return poStudentName ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+              <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 5, padding: "3px 8px" }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{poStudentName}</span>
+              </div>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "#6b6358", textTransform: "uppercase" }}>PO</span>
+            </div>
+          ) : null; })()}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
@@ -1264,13 +1272,23 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
-            <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+          {!isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
+              <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+              <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            </div>
+            {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>
+                <span style={{ color: GOLD }}>{claimCount}</span>C · <span style={{ color: "#7BA3BF" }}>{specCount}</span>S
+              </div>
+            ); })()}
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
             <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+              <span style={{ color: "#6b6358", marginLeft: 4 }}><span style={{ color: GOLD }}>{claimCount}</span>C·<span style={{ color: "#7BA3BF" }}>{specCount}</span>S</span>
+            ); })()}
           </div>}
         </div>
       </header>
