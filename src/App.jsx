@@ -870,7 +870,7 @@ function ActiveRound({ config, onCloseRoom }) {
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
       <link href={FONTS_LINK} rel="stylesheet" />
       <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0 }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
             {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
@@ -878,7 +878,7 @@ function ActiveRound({ config, onCloseRoom }) {
             {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poStudentId ? (students.find(s => s.id === poStudentId)?.name || poName) : poName} · {displayName}</div>}
           </div>
           {poStudentId && (() => { const poStudentName = students.find(s => s.id === poStudentId)?.name; return poStudentName ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: isMobile ? "auto" : 8 }}>
               <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 5, padding: "3px 8px" }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{poStudentName}</span>
               </div>
@@ -886,25 +886,23 @@ function ActiveRound({ config, onCloseRoom }) {
             </div>
           ) : null; })()}
         </div>
+        {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358", textAlign: "center" }}>
+            <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>competitors</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spectators</span>
+          </div>
+        ); })()}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          {!isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+          {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
               <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
               <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 11, padding: "0 2px" }}>📋</button>
               <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 4 }}>PIN </span>
               <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
-            </div>
-            {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>
-                <span style={{ color: GOLD }}>{claimCount}</span> competitors · <span style={{ color: "#7BA3BF" }}>{specCount}</span> spectators
-              </div>
-            ); })()}
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
@@ -1266,29 +1264,24 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
             </div>
           )}
         </div>
+        {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358", textAlign: "center" }}>
+            <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>competitors</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spectators</span>
+          </div>
+        ); })()}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: isCompetitor ? "Splits" : "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          {!isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
-              <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
-              <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
-            </div>
-            {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>
-                <span style={{ color: GOLD }}>{claimCount}</span>C · <span style={{ color: "#7BA3BF" }}>{specCount}</span>S
-              </div>
-            ); })()}
+          {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+            <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
             <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
-            {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
-              <span style={{ color: "#6b6358", marginLeft: 4 }}><span style={{ color: GOLD }}>{claimCount}</span>C·<span style={{ color: "#7BA3BF" }}>{specCount}</span>S</span>
-            ); })()}
           </div>}
         </div>
       </header>
