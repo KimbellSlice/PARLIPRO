@@ -127,6 +127,20 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
     });
   };
 
+  // Re-fetch claims and PO status while name picker is open
+  useEffect(() => {
+    if (!showNamePicker || !pendingCode) return;
+    const iv = setInterval(() => {
+      getRoomOnce(pendingCode, (data) => {
+        if (data) {
+          setRosterClaims(data.competitorClaims || {});
+          setPendingRoomData(data);
+        }
+      });
+    }, 3000);
+    return () => clearInterval(iv);
+  }, [showNamePicker, pendingCode]);
+
   const handleRejoin = () => {
     const code = joinCode.trim().toUpperCase();
     if (code.length < 4) { setJoinError("Enter a room code first"); return; }
