@@ -102,23 +102,23 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
 
   const handleJoin = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a valid room code"); return; }
+    if (code.length < 4) { setJoinError("Enter a valid chamber code"); return; }
     setChecking(true); setJoinError("");
     checkRoomExists(code, (exists) => {
       setChecking(false);
       if (exists) onJoinRoom(code);
-      else setJoinError("Room not found. Check the code and try again.");
+      else setJoinError("Chamber not found. Check the code and try again.");
     });
   };
 
   const handleJoinAsCompetitor = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a valid room code"); return; }
+    if (code.length < 4) { setJoinError("Enter a valid chamber code"); return; }
     setChecking(true); setJoinError("");
     getRoomOnce(code, (data) => {
       setChecking(false);
-      if (!data) { setJoinError("Room not found."); return; }
-      if (!data.students || data.students.length === 0) { setJoinError("Room has no roster yet."); return; }
+      if (!data) { setJoinError("Chamber not found."); return; }
+      if (!data.students || data.students.length === 0) { setJoinError("Chamber has no roster yet."); return; }
       setPendingCode(code);
       setRosterNames(data.students.map(s => ({ id: s.id, name: s.name })));
       setRosterClaims(data.competitorClaims || {});
@@ -143,12 +143,12 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
 
   const handleRejoin = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a room code first"); return; }
+    if (code.length < 4) { setJoinError("Enter a chamber code first"); return; }
     setChecking(true); setJoinError("");
     getRoomOnce(code, (data) => {
       setChecking(false);
-      if (!data) { setJoinError("Room not found."); return; }
-      if (!data.poPin) { setJoinError("This room has no PO PIN set."); return; }
+      if (!data) { setJoinError("Chamber not found."); return; }
+      if (!data.poPin) { setJoinError("This chamber has no PO PIN set."); return; }
       if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < 15000) {
         setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
         return;
@@ -187,13 +187,13 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
       <div style={{ maxWidth: 440, width: "100%", textAlign: "center" }}>
         <Brand size="large" />
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 32 }}>
-          <button onClick={onCreateRoom} style={{ width: "100%", padding: "18px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 10, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" }}>Create Room</button>
+          <button onClick={onCreateRoom} style={{ width: "100%", padding: "18px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 10, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" }}>Create Chamber</button>
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "8px 0" }}>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.15em", textTransform: "uppercase" }}>or enter a room code</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.15em", textTransform: "uppercase" }}>or enter a chamber code</span>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
           </div>
-          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); setShowNamePicker(false); }} onKeyDown={e => e.key === "Enter" && handleJoinAsCompetitor()} placeholder="ROOM CODE" aria-label="Room code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
+          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); setShowNamePicker(false); }} onKeyDown={e => e.key === "Enter" && handleJoinAsCompetitor()} placeholder="CHAMBER CODE" aria-label="Chamber code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
 
           {showPinEntry ? (
             <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
@@ -216,7 +216,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
                   return (
                     <button key={s.id} onClick={() => !taken && onJoinCompetitor(pendingCode, s.id, s.name)} disabled={taken} style={{ padding: "12px 16px", background: taken ? "#1e1b17" : "#1e1b17", color: taken ? "#6b6358" : "#E8E0D0", border: taken ? "1px solid #2a2520" : "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: taken ? "not-allowed" : "pointer", textAlign: "left", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>{s.name}</span>
-                      {taken && <span style={{ fontSize: 9, color: claimedByPO ? GOLD : "#C45A5A", textTransform: "uppercase" }}>{claimedByPO ? "PO" : "In Room"}</span>}
+                      {taken && <span style={{ fontSize: 9, color: claimedByPO ? GOLD : "#C45A5A", textTransform: "uppercase" }}>{claimedByPO ? "PO" : "In Chamber"}</span>}
                     </button>
                   );
                 })}
@@ -300,12 +300,12 @@ function SetupPhase({ onStart }) {
             <span style={{ fontSize: isMobile ? 18 : 22, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: "#E8E0D0", letterSpacing: "0.15em", marginLeft: 8 }}>{poPin}</span>
           </div>
         </div>
-        <div style={{ marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>Share the room code with participants. The PO PIN is required to claim the Presiding Officer role.</div>
+        <div style={{ marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>Share the chamber code with participants. The PO PIN is required to claim the Presiding Officer role.</div>
       </header>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <div style={{ marginBottom: 20 }}>
-          <label style={LS}>Room Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
-          <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Room name" style={IS} />
+          <label style={LS}>Chamber Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
+          <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Chamber name" style={IS} />
         </div>
         <div style={{ display: "flex", marginBottom: 24, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530" }}>
           {[{ key: "roster", label: "Roster", done: hasRoster }, { key: "seating", label: "Seating", done: hasSeating }, { key: "docket", label: "Docket", done: hasDocket }].map(t => (
@@ -390,7 +390,7 @@ function SetupPhase({ onStart }) {
           {docket.length === 0 && <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least one bill.</div>}
         </>)}
         <button disabled={!canStart} onClick={() => { if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map((s, i) => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          {canStart ? "Create Room →" : `Complete setup (${[!hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
+          {canStart ? "Create Chamber →" : `Complete setup (${[!hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
         </button>
       </div>
       {profanity.Toast}
@@ -884,7 +884,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   };
 
   const nextInfo = getNextSpeechInfo();
-  const displayName = roomName || `Room ${roomCode}`;
+  const displayName = roomName || `Chamber ${roomCode}`;
 
   return (
     <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
@@ -927,9 +927,9 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
             ))}
           </div>
           {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
+              <span style={{ fontSize: 9, color: "#9B917F" }}>CHAMBER </span>
               <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
-              <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 11, padding: "0 2px" }}>📋</button>
+              <button onClick={() => copyToClipboard(roomCode)} title="Copy chamber code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 11, padding: "0 2px" }}>📋</button>
               <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 4 }}>PIN </span>
               <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
           </div>}
@@ -944,15 +944,15 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         </div>
       </header>
 
-      {/* Close Room Confirmation */}
+      {/* Close Chamber Confirmation */}
       {showCloseConfirm && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
           <div style={{ background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 380, textAlign: "center" }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Close Room?</div>
-            <p style={{ fontSize: 14, color: "#E8E0D0", marginBottom: 20 }}>This will end the session for all spectators and delete the room. This cannot be undone.</p>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Close Chamber?</div>
+            <p style={{ fontSize: 14, color: "#E8E0D0", marginBottom: 20 }}>This will end the session for all spectators and delete the chamber. This cannot be undone.</p>
             <div style={{ display: "flex", gap: 8 }}>
               <button onClick={() => setShowCloseConfirm(false)} style={{ flex: 1, padding: "10px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-              <button onClick={handleCloseRoom} style={{ flex: 1, padding: "10px", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Close Room</button>
+              <button onClick={handleCloseRoom} style={{ flex: 1, padding: "10px", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Close Chamber</button>
             </div>
           </div>
         </div>
@@ -1189,7 +1189,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
         <div style={{ textAlign: "center" }}>
           <Brand size="large" />
           <div style={{ marginTop: 20, fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#9B917F" }}>
-            {disconnected ? "Room not found or has ended." : "Connecting to room..."}
+            {disconnected ? "Chamber not found or has ended." : "Connecting to chamber..."}
           </div>
         </div>
       </div>
@@ -1201,7 +1201,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
   const currentBill = docket[currentBillIdx];
-  const displayName = roomName || `Room ${roomCode}`;
+  const displayName = roomName || `Chamber ${roomCode}`;
   const sortedSeekers = sortPrec((seekers || []).map(id => getStudent(id)).filter(Boolean), mode, questionPrec);
   const activeSeekers = sortedSeekers;
   const hasSpeech = !!activeSpeech;
@@ -1310,7 +1310,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
           </div>
           {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
-            <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            <button onClick={() => copyToClipboard(roomCode)} title="Copy chamber code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
@@ -1322,7 +1322,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
       {createdPin && (
         <div style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}11)`, border: `1px solid ${GOLD}44`, borderRadius: 0, padding: isMobile ? "12px 16px" : "14px 24px", display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}>
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
-            Room created! Share code <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{roomCode}</span>
+            Chamber created! Share code <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{roomCode}</span>
           </div>
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
             PO PIN: <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{createdPin}</span>
@@ -1595,7 +1595,7 @@ export default function App() {
       setCreatedRoomPin(cfg.poPin);
       setSpectatorCode(cfg.roomCode);
       setView("spectator");
-    }).catch(err => { console.error("Failed to create room:", err); });
+    }).catch(err => { console.error("Failed to create chamber:", err); });
   };
 
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
