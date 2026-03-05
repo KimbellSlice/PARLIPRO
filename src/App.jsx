@@ -1526,12 +1526,22 @@ export default function App() {
 
   const handleCloseRoom = () => { setView("landing"); setConfig(null); };
   const handleReleasePO = (roomCode) => {
+    // Get PO's student info before clearing
+    const poId = config?.poStudentId;
+    const poStudent = poId ? (config?.students || []).find(s => String(s.id) === String(poId)) : null;
     // Clear poStudentId and poHeartbeat in Firebase
     writeRoomState(roomCode, { poStudentId: null, poHeartbeat: null }).catch(console.error);
     try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch(e) {}
     setConfig(null);
-    setSpectatorCode(roomCode);
-    setView("spectator");
+    if (poStudent) {
+      // Go back to competitor mode as their name
+      setCompetitorInfo({ roomCode, studentId: poStudent.id, studentName: poStudent.name });
+      setSpectatorCode(null);
+      setView("competitor");
+    } else {
+      setSpectatorCode(roomCode);
+      setView("spectator");
+    }
   };
 
   const handleRejoinPO = (roomCode, firebaseData, claimingStudentId) => {
