@@ -652,7 +652,7 @@ function RosterTab({ students, onRename, onAdd }) {
 }
 
 // ═══ ACTIVE ROUND (PO) ═══
-function ActiveRound({ config, onCloseRoom }) {
+function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, poPin, questionPrec: configQuestionPrec, poStudentId } = config;
 
   // Try restoring from session (for rejoin / refresh)
@@ -690,6 +690,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const docketInputRef = useRef(null);
   const [speechStartTime, setSpeechStartTime] = useState(restored?.speechStartTime || null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showReleasePOConfirm, setShowReleasePOConfirm] = useState(false);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
   const [competitorClaims, setCompetitorClaims] = useState({});
@@ -902,6 +903,15 @@ function ActiveRound({ config, onCloseRoom }) {
                 <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{poStudentName}</span>
               </div>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: "#6b6358", textTransform: "uppercase" }}>PO</span>
+              {!showReleasePOConfirm ? (
+                <button onClick={() => setShowReleasePOConfirm(true)} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>release</button>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 4, background: "#2a2520", border: "1px solid #3a3530", borderRadius: 4, padding: "3px 6px" }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#E8A0A0" }}>Release PO role?</span>
+                  <button onClick={() => { setShowReleasePOConfirm(false); onReleasePO(roomCode); }} style={{ padding: "2px 6px", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 3, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: "pointer" }}>Yes</button>
+                  <button onClick={() => setShowReleasePOConfirm(false)} style={{ padding: "2px 6px", background: "#2a2520", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 3, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>No</button>
+                </div>
+              )}
             </div>
           ) : null; })()}
         </div>
@@ -1251,7 +1261,9 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
                 <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{competitorName}</span>
               </div>
               <button onClick={() => { releaseCompetitorName(roomCode, competitorId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>switch</button>
-              {!showPinEntry ? (
+              {statePoStudentId ? (
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>PO: <span style={{ color: GOLD }}>{students.find(s => s.id === statePoStudentId)?.name || "Active"}</span></span>
+              ) : !showPinEntry ? (
                 <button onClick={() => setShowPinEntry(true)} style={{ padding: "3px 8px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Claim PO</button>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -1513,6 +1525,14 @@ export default function App() {
   }, [view, config, spectatorCode]);
 
   const handleCloseRoom = () => { setView("landing"); setConfig(null); };
+  const handleReleasePO = (roomCode) => {
+    // Clear poStudentId and poHeartbeat in Firebase
+    writeRoomState(roomCode, { poStudentId: null, poHeartbeat: null }).catch(console.error);
+    try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch(e) {}
+    setConfig(null);
+    setSpectatorCode(roomCode);
+    setView("spectator");
+  };
 
   const handleRejoinPO = (roomCode, firebaseData, claimingStudentId) => {
     // Rebuild config from Firebase data
@@ -1570,7 +1590,7 @@ export default function App() {
 
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={handleSetupStart} />;
-  if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} />;
+  if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} onReleasePO={handleReleasePO} />;
   if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
   return null;
