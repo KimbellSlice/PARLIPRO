@@ -399,7 +399,7 @@ function SetupPhase({ onStart }) {
 }
 
 // ═══ SHARED DISPLAY COMPONENTS ═══
-function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle, poStudentId }) {
+function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle, poStudentId, lastSpeakerId, inQuestionPeriod }) {
   const getStudent = (id) => students.find(s => s.id === id);
   const isMobile = useIsMobile();
   return (
@@ -412,8 +412,9 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
             if (!student) return <div key={idx} role="gridcell" style={{ minHeight: isMobile ? 44 : 64, borderRadius: 8, border: "2px dashed #2a2520" }} />;
             const s = getStudent(student.id); if (!s) return null;
             const isPO = poStudentId && s.id === poStudentId;
-            const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = (!!activeSpeech && mode === "speech") || isPO;
-            return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}${isPO ? " (PO)" : ""}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && !isPO && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked && !isPO) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isPO ? "#2a2520" : isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked && !isPO ? "pointer" : "default", textAlign: "center", border: isPO ? "2px dashed #3a3530" : isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isPO ? "#6b6358" : isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: isPO ? 0.4 : locked && !isSp ? 0.5 : 1, outline: "none" }}>
+            const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, isLastSpeaker = inQuestionPeriod && lastSpeakerId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = (!!activeSpeech && mode === "speech") || isPO || isLastSpeaker;
+            return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}${isPO ? " (PO)" : ""}${isLastSpeaker ? " (Speaker)" : ""}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && !isPO && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked && !isPO) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isPO ? "#2a2520" : isLastSpeaker ? "linear-gradient(135deg, #2D3A4A, #1E2A3A)" : isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked && !isPO ? "pointer" : "default", textAlign: "center", border: isPO ? "2px dashed #3a3530" : isLastSpeaker ? "2px solid #7BA3BF" : isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isPO ? "#6b6358" : isLastSpeaker ? "#9BB8CF" : isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: isPO ? 0.4 : isLastSpeaker ? 0.5 : locked && !isSp ? 0.5 : 1, outline: "none" }}>
+              {isLastSpeaker && <div style={{ position: "absolute", top: isMobile ? -6 : -8, right: isMobile ? -4 : -6, background: "#7BA3BF", color: "#1a1714", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 7 : 8, fontWeight: 700, padding: isMobile ? "1px 3px" : "1px 5px", borderRadius: 3, textTransform: "uppercase" }}>Speaker</div>}
               <div style={{ fontSize: isMobile ? 11 : 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 4 }}>{s.name}</div>
               {isPO && <div style={{ fontSize: 8, fontFamily: "'DM Mono', monospace", color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>PO</div>}
               <div style={{ fontSize: isMobile ? 8 : 10, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 8 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
@@ -697,6 +698,7 @@ function ActiveRound({ config, onCloseRoom }) {
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [showNextSpeechConfirm, setShowNextSpeechConfirm] = useState(false);
   const [inQuestionPeriod, setInQuestionPeriod] = useState(restored?.inQuestionPeriod || false);
+  const [lastSpeakerId, setLastSpeakerId] = useState(restored?.lastSpeakerId || null);
   const [savedSpeechSeekers, setSavedSpeechSeekers] = useState([]);
   const [questionPrec] = useState(restored?.questionPrec || configQuestionPrec || "random");
   const profanity = useProfanityToast();
@@ -742,10 +744,10 @@ function ActiveRound({ config, onCloseRoom }) {
       activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
       speechStartTime: speechStartTime || null,
       speechElapsed: currentSpeechElapsed.current || 0,
-      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId: poStudentId || null,
+      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null,
     };
     writeRoomState(roomCode, state).catch(console.error);
-  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode]);
+  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, lastSpeakerId]);
 
   useEffect(() => { syncToFirebase(); }, [syncToFirebase]);
 
@@ -784,13 +786,13 @@ function ActiveRound({ config, onCloseRoom }) {
       students, seatingSlots, cols, frontSide, docket, roomCode, poName, roomName: roomName || "", poPin: poPin || "",
       mode, seekers, speechCounter, questionCounter, history,
       activeSpeech, pendingSpeaker, affCount, negCount, speechSequence,
-      currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec,
+      currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec, lastSpeakerId,
       timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running,
     };
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
 
-  const toggleSeeker = (id) => { if (id === poStudentId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
+  const toggleSeeker = (id) => { if (id === poStudentId) return; if (inQuestionPeriod && id === lastSpeakerId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
   const activeSeekers = mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers;
   const sortedSeekers = (() => sortPrec(activeSeekers.map(id => getStudent(id)).filter(Boolean), mode, questionPrec))();
 
@@ -826,7 +828,7 @@ function ActiveRound({ config, onCloseRoom }) {
     const dur = currentSpeechElapsed.current;
     const sp = getStudent(activeSpeech.studentId);
     setHistory(p => [{ type: "speech", name: sp?.name, number: activeSpeech.speechNumber, side: activeSpeech.side, bill: currentBill?.name, duration: dur, time: Date.now() }, ...p]);
-    setActiveSpeech(null); setMode("question"); setSeekers([]); setSpeechStartTime(null); setInQuestionPeriod(true); setSavedSpeechSeekers([]);
+    setLastSpeakerId(activeSpeech.studentId); setActiveSpeech(null); setMode("question"); setSeekers([]); setSpeechStartTime(null); setInQuestionPeriod(true); setSavedSpeechSeekers([]);
   };
 
   const recognizeQuestioner = (id) => {
@@ -839,13 +841,13 @@ function ActiveRound({ config, onCloseRoom }) {
   };
 
   const removeSeeker = (id) => setSeekers(p => p.filter(x => x !== id));
-  const switchToSpeechMode = () => { setMode("speech"); setSeekers([]); setActiveSpeech(null); setInQuestionPeriod(false); setSavedSpeechSeekers([]); };
+  const switchToSpeechMode = () => { setMode("speech"); setSeekers([]); setActiveSpeech(null); setInQuestionPeriod(false); setSavedSpeechSeekers([]); setLastSpeakerId(null); };
 
   const resolveBill = (passed) => {
     pushUndo();
     setDocket(p => p.map((b, i) => i === currentBillIdx ? { ...b, status: passed ? "passed" : "failed" } : b));
     setHistory(p => [{ type: "bill", name: currentBill?.name, status: passed ? "Passed" : "Failed", time: Date.now() }, ...p]);
-    setAffCount(0); setNegCount(0); setSpeechSequence([]); setActiveSpeech(null); setPendingSpeaker(null); setSeekers([]); setMode("speech"); setSpeechStartTime(null); setInQuestionPeriod(false);
+    setAffCount(0); setNegCount(0); setSpeechSequence([]); setActiveSpeech(null); setPendingSpeaker(null); setSeekers([]); setMode("speech"); setSpeechStartTime(null); setInQuestionPeriod(false); setLastSpeakerId(null);
     const nextIdx = currentBillIdx + 1;
     setCurrentBillIdx(nextIdx);
     setShowPQConfirm(false);
@@ -968,7 +970,7 @@ function ActiveRound({ config, onCloseRoom }) {
               </div>)}
               {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
-              <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} poStudentId={poStudentId} />
+              <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} poStudentId={poStudentId} lastSpeakerId={lastSpeakerId} inQuestionPeriod={inQuestionPeriod} />
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
@@ -1328,7 +1330,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
 
 
             {/* Seating Chart */}
-            <SeatingGrid students={students} seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} interactive={false} locked={true} seekers={seekers} activeSpeech={activeSpeech} isMobile={isMobile} poStudentId={statePoStudentId} />
+            <SeatingGrid students={students} seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} interactive={false} locked={true} seekers={seekers} activeSpeech={activeSpeech} isMobile={isMobile} poStudentId={statePoStudentId} lastSpeakerId={state?.lastSpeakerId} inQuestionPeriod={state?.inQuestionPeriod} />
 
             {/* Competitor: indicate interest in next speech */}
             {isCompetitor && !roundComplete && mode === "speech" && (() => {
