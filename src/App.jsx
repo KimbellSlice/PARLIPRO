@@ -18,7 +18,18 @@ const containsProfanity = (text) => badWordRegex.test(text);
 const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 50);
 const BG = "linear-gradient(160deg, #1a1714 0%, #231f1b 50%, #1a1714 100%)";
 const GOLD = "#D4A843";
-const copyToClipboard = (text) => { try { navigator.clipboard.writeText(text); } catch(e) { /* fallback: no-op */ } };
+const copyToClipboard = (text) => {
+  try {
+    navigator.clipboard.writeText(text);
+    // Show toast
+    const toast = document.createElement("div");
+    toast.textContent = "Copied!";
+    Object.assign(toast.style, { position: "fixed", top: "20px", left: "50%", transform: "translateX(-50%)", background: "#D4A843", color: "#1a1714", fontFamily: "'DM Mono', monospace", fontSize: "12px", fontWeight: "600", padding: "6px 16px", borderRadius: "6px", zIndex: "9999", opacity: "1", transition: "opacity 0.3s ease" });
+    document.body.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = "0"; }, 1200);
+    setTimeout(() => { document.body.removeChild(toast); }, 1600);
+  } catch(e) { /* fallback: no-op */ }
+};
 const IS = { width: "100%", padding: "10px 14px", background: "#2a2520", border: "1px solid #3a3530", borderRadius: 6, color: "#E8E0D0", fontSize: 14, fontFamily: "'Newsreader', Georgia, serif", outline: "none", boxSizing: "border-box" };
 const LS = { display: "block", fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" };
 
@@ -578,7 +589,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
       else if (side === "neg") negNames.push(name);
       else if (side === "both") { affNames.push(name); negNames.push(name); }
     });
-    return { aff: affNames, neg: negNames };
+    return { aff: affNames.sort((a, b) => a.localeCompare(b)), neg: negNames.sort((a, b) => a.localeCompare(b)) };
   };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
@@ -896,6 +907,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
             {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
             {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>PO: {poStudentId ? (students.find(s => s.id === poStudentId)?.name || poName) : poName} · {displayName}</div>}
+            {isMobile && <div style={{ fontSize: 9, color: "#6b6358", fontFamily: "'DM Mono', monospace" }}>{displayName}</div>}
           </div>
           {poStudentId && (() => { const poStudentName = students.find(s => s.id === poStudentId)?.name; return poStudentName ? (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: isMobile ? "auto" : 8 }}>
@@ -1241,7 +1253,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
       else if (side === "neg") negNames.push(name);
       else if (side === "both") { affNames.push(name); negNames.push(name); }
     });
-    return { aff: affNames, neg: negNames };
+    return { aff: affNames.sort((a, b) => a.localeCompare(b)), neg: negNames.sort((a, b) => a.localeCompare(b)) };
   };
 
   return (
@@ -1254,6 +1266,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
             {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
             {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>{statePoStudentId ? `PO: ${students.find(s => s.id === statePoStudentId)?.name || poName} · ` : poName ? `PO: ${poName} · ` : ""}{displayName}</div>}
+            {isMobile && <div style={{ fontSize: 9, color: "#6b6358", fontFamily: "'DM Mono', monospace" }}>{displayName}</div>}
           </div>
           {isCompetitor && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
