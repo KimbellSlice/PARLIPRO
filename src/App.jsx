@@ -430,8 +430,9 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
   );
 }
 
-function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, poName, roomName }) {
+function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, poName, roomName, poStudentId }) {
   const isMobile = useIsMobile();
+  const isPOStudent = (id) => poStudentId && String(id) === String(poStudentId);
   const totalSpeeches = history.filter(h => h.type === "speech").length;
   const totalQuestions = history.filter(h => h.type === "question").length;
   const totalSpeechTime = history.filter(h => h.type === "speech").reduce((a, h) => a + (h.duration || 0), 0);
@@ -482,7 +483,7 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
       </tbody></table>
       <h2>Student Activity</h2>
       <table><thead><tr><th>#</th><th>Name</th><th>Speeches</th><th>Questions</th></tr></thead><tbody>
-        ${studentStats.map((s, i) => `<tr><td>${i + 1}</td><td>${s.name}</td><td>${s.speeches||0}</td><td>${s.questions||0}</td></tr>`).join("")}
+        ${studentStats.map((s, i) => { const isPO = isPOStudent(s.id); return `<tr style="${isPO ? 'opacity:0.6' : ''}"><td>${isPO ? "—" : i + 1}</td><td>${s.name}${isPO ? ' <span style="color:#D4A843;font-size:10px;font-weight:600">PO</span>' : ""}</td><td>${isPO ? "—" : (s.speeches||0)}</td><td>${isPO ? "—" : (s.questions||0)}</td></tr>`; }).join("")}
       </tbody></table>
       <h2>Speech Log</h2>
       <table><thead><tr><th>#</th><th>Speaker</th><th>Side</th><th>Bill</th><th>Duration</th><th>Time</th></tr></thead><tbody>
@@ -519,7 +520,7 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
         </div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Student Activity</div>
         <div role="list" aria-label="Student activity" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {studentStats.map((s, idx) => (<div key={s.id} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "#2a2520", borderRadius: 6, border: "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{idx + 1}</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{s.name}</span><span aria-label={`${s.speeches||0} speeches`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>🎤 {s.speeches||0}</span><span aria-label={`${s.questions||0} questions`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#7BA3BF" }}>❓ {s.questions||0}</span></div>))}
+          {studentStats.map((s, idx) => { const isPO = isPOStudent(s.id); return (<div key={s.id} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: isPO ? "#2a2520" : "#2a2520", borderRadius: 6, border: isPO ? `1px solid ${GOLD}44` : "1px solid #3a3530", opacity: isPO ? 0.7 : 1 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{isPO ? "—" : idx + 1 - (poStudentId ? studentStats.slice(0, idx).filter(x => isPOStudent(x.id)).length : 0)}</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{s.name}{isPO ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD, marginLeft: 8, fontWeight: 600 }}>PO</span> : ""}</span>{!isPO && <><span aria-label={`${s.speeches||0} speeches`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>🎤 {s.speeches||0}</span><span aria-label={`${s.questions||0} questions`} style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#7BA3BF" }}>❓ {s.questions||0}</span></>}</div>); })}
         </div>
       </div>
     </div>
@@ -1022,7 +1023,7 @@ function ActiveRound({ config, onCloseRoom }) {
           </div>
         </div>
       ) : activeTab === "orders" ? (
-        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
+        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={poStudentId} />
       ) : activeTab === "docket" ? (
         <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
       ) : activeTab === "roster" ? (
@@ -1412,7 +1413,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
           <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} poStudentId={statePoStudentId} />
         )
       ) : activeTab === "orders" ? (
-        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} />
+        <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={statePoStudentId} />
       ) : (
         <LogTab history={history} />
       )}
