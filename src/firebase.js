@@ -102,3 +102,27 @@ export function claimCompetitorName(roomCode, studentId) {
 export function releaseCompetitorName(roomCode, studentId) {
   return set(ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`), null);
 }
+
+// Spectator: heartbeat (track active spectators)
+export function claimSpectatorPresence(roomCode, spectatorId) {
+  return update(ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`), { heartbeat: Date.now() });
+}
+
+export function releaseSpectatorPresence(roomCode, spectatorId) {
+  return set(ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`), null);
+}
+
+// Atomic claim with transaction-like check
+export function claimCompetitorNameAtomic(roomCode, studentId) {
+  const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
+  return new Promise((resolve, reject) => {
+    onValue(claimRef, (snapshot) => {
+      const existing = snapshot.val();
+      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < 15000) {
+        reject(new Error("Name already claimed"));
+      } else {
+        update(claimRef, { claimedAt: Date.now() }).then(resolve).catch(reject);
+      }
+    }, { onlyOnce: true });
+  });
+}

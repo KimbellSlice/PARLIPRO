@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName } from "./firebase.js";
+import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -18,6 +18,7 @@ const containsProfanity = (text) => badWordRegex.test(text);
 const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 50);
 const BG = "linear-gradient(160deg, #1a1714 0%, #231f1b 50%, #1a1714 100%)";
 const GOLD = "#D4A843";
+const copyToClipboard = (text) => { try { navigator.clipboard.writeText(text); } catch(e) { /* fallback: no-op */ } };
 const IS = { width: "100%", padding: "10px 14px", background: "#2a2520", border: "1px solid #3a3530", borderRadius: 6, color: "#E8E0D0", fontSize: 14, fontFamily: "'Newsreader', Georgia, serif", outline: "none", boxSizing: "border-box" };
 const LS = { display: "block", fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" };
 
@@ -143,12 +144,23 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
     });
   };
 
+  const [landingPinAttempts, setLandingPinAttempts] = useState(0);
+  const [landingPinLockUntil, setLandingPinLockUntil] = useState(0);
   const handlePinSubmit = () => {
+    if (Date.now() < landingPinLockUntil) { setJoinError(`Too many attempts. Wait ${Math.ceil((landingPinLockUntil - Date.now()) / 1000)}s.`); return; }
     getRoomOnce(pendingCode, (data) => {
       if (data && data.poPin === pin) {
+        setLandingPinAttempts(0);
         onRejoinPO(pendingCode, data);
       } else {
-        setJoinError("Incorrect PIN.");
+        const newAttempts = landingPinAttempts + 1;
+        setLandingPinAttempts(newAttempts);
+        if (newAttempts >= 5) {
+          setLandingPinLockUntil(Date.now() + 30000);
+          setJoinError("Too many attempts. Locked for 30s.");
+        } else {
+          setJoinError(`Incorrect PIN. ${5 - newAttempts} attempts left.`);
+        }
         setShowPinEntry(false);
         setPin("");
       }
@@ -662,6 +674,8 @@ function ActiveRound({ config, onCloseRoom }) {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
+  const [competitorClaims, setCompetitorClaims] = useState({});
+  const [spectatorPresence, setSpectatorPresence] = useState({});
   const isMobile = useIsMobile();
   const [showPrec, setShowPrec] = useState(!isMobile);
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
@@ -733,6 +747,8 @@ function ActiveRound({ config, onCloseRoom }) {
     const unsub = subscribeToRoom(roomCode, (data) => {
       if (data?.competitorIntents) setCompetitorIntents(data.competitorIntents);
       if (data?.splits) setCompetitorSplits(data.splits);
+      setCompetitorClaims(data?.competitorClaims || {});
+      setSpectatorPresence(data?.spectatorPresence || {});
     });
     return unsub;
   }, [roomCode]);
@@ -868,15 +884,24 @@ function ActiveRound({ config, onCloseRoom }) {
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace" }}>
-            <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
-            <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
-            <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 8 }}>PIN </span>
-            <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
+          {!isMobile && <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 9, color: "#9B917F" }}>ROOM </span>
+              <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
+              <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 11, padding: "0 2px" }}>📋</button>
+              <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 4 }}>PIN </span>
+              <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
+            </div>
+            {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length; const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>
+                <span style={{ color: GOLD }}>{claimCount}</span> competitors · <span style={{ color: "#7BA3BF" }}>{specCount}</span> spectators
+              </div>
+            ); })()}
           </div>}
-          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
-            <span style={{ color: "#6b6358", marginLeft: 6 }}>PIN </span>
+            <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            <span style={{ color: "#6b6358", marginLeft: 4 }}>PIN </span>
             <span style={{ letterSpacing: "0.08em" }}>{poPin}</span>
           </div>}
           {undoStack.length > 0 && <button onClick={undo} style={{ padding: "5px 10px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>↩ Undo</button>}
@@ -1062,8 +1087,19 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
     if (isCompetitor && state && !disconnected) updateCompetitorIntent(roomCode, competitorId, "speech", wantSpeech).catch(console.error);
   }, [wantSpeech, roomCode, competitorId, isCompetitor, state, disconnected]);
 
-
-
+  // Spectator presence heartbeat (non-competitors only)
+  const [spectatorId] = useState(() => "spec_" + Math.random().toString(36).slice(2, 8));
+  useEffect(() => {
+    if (isCompetitor || disconnected) return;
+    claimSpectatorPresence(roomCode, spectatorId).catch(console.error);
+    const iv = setInterval(() => {
+      claimSpectatorPresence(roomCode, spectatorId).catch(console.error);
+    }, 5000);
+    return () => {
+      clearInterval(iv);
+      if (!disconnected) releaseSpectatorPresence(roomCode, spectatorId).catch(console.error);
+    };
+  }, [roomCode, spectatorId, isCompetitor, disconnected]);
   // Reset all speech intents when a new speaker is recognized
   useEffect(() => {
     if (!state) return;
@@ -1082,18 +1118,29 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   };
 
   // PO claim
+  const [pinAttempts, setPinAttempts] = useState(0);
+  const [pinLockUntil, setPinLockUntil] = useState(0);
   const handleClaimPO = () => {
     if (!state) return;
+    if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
     if (!state.poPin) { setPinError("No PO PIN set for this room."); return; }
     if (state.poHeartbeat && (Date.now() - state.poHeartbeat) < 15000) {
       setPinError("A PO is currently active in this room.");
       return;
     }
     if (state.poPin === pin) {
+      setPinAttempts(0);
       if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error);
       onClaimPO(roomCode, state, competitorId);
     } else {
-      setPinError("Incorrect PIN.");
+      const newAttempts = pinAttempts + 1;
+      setPinAttempts(newAttempts);
+      if (newAttempts >= 5) {
+        setPinLockUntil(Date.now() + 30000);
+        setPinError("Too many attempts. Locked for 30s.");
+      } else {
+        setPinError(`Incorrect PIN. ${5 - newAttempts} attempts left.`);
+      }
       setPin("");
     }
   };
@@ -1217,11 +1264,13 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
-          {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+          {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+            <button onClick={() => copyToClipboard(roomCode)} title="Copy room code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
           </div>}
-          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F" }}>
+          {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
+            <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
           </div>}
         </div>
       </header>
