@@ -924,14 +924,14 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                   <button onClick={() => setShowReleasePOConfirm(false)} style={{ padding: "2px 6px", background: "#2a2520", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 3, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>No</button>
                 </div>
               )}
+              {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", marginLeft: 4 }}>
+                  <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>comp</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spec</span>
+                </span>
+              ); })()}
             </div>
           ) : null; })()}
         </div>
-        {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358", textAlign: "center" }}>
-            <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>competitors</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spectators</span>
-          </div>
-        ); })()}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
@@ -1092,7 +1092,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
 }
 
 // ═══ SPECTATOR VIEW ═══
-function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onClaimPO, onSelectName, createdPin, onDismissPin }) {
+function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSelectName, createdPin, onDismissPin }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
@@ -1101,6 +1101,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
   const [wantSpeech, setWantSpeech] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [showNamePicker, setShowNamePicker] = useState(false);
+  const [showSwitchPicker, setShowSwitchPicker] = useState(false);
   const [showPrec, setShowPrec] = useState(!isMobile);
   const [expandedSplitBill, setExpandedSplitBill] = useState(null);
   const [pin, setPin] = useState("");
@@ -1273,7 +1274,21 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               <div style={{ background: `linear-gradient(135deg, ${GOLD}cc, ${GOLD}99)`, borderRadius: 5, padding: "3px 8px" }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: "#1a1714" }}>{competitorName}</span>
               </div>
-              <button onClick={() => { releaseCompetitorName(roomCode, competitorId).catch(console.error); onSwitch(); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>switch</button>
+              {!showSwitchPicker ? (
+                <button onClick={() => setShowSwitchPicker(true)} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 9, fontFamily: "'DM Mono', monospace", cursor: "pointer", textDecoration: "underline" }}>switch</button>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <select onChange={e => { if (e.target.value) { const s = students.find(st => String(st.id) === e.target.value); if (s && onSelectName) { releaseCompetitorName(roomCode, competitorId).catch(console.error); onSelectName(roomCode, s.id, s.name); } } setShowSwitchPicker(false); }} defaultValue="" style={{ padding: "3px 6px", background: "#1e1b17", color: "#E8E0D0", border: `1px solid ${GOLD}`, borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer", maxWidth: 140 }}>
+                    <option value="" disabled>Switch to...</option>
+                    {students.filter(s => s.id !== statePoStudentId && String(s.id) !== String(competitorId)).map(s => {
+                      const claim = (state?.competitorClaims || {})[fbSafe(s.id)];
+                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000) || s.id === statePoStudentId;
+                      return <option key={s.id} value={s.id} disabled={taken}>{s.name}{taken ? " (taken)" : ""}</option>;
+                    })}
+                  </select>
+                  <button onClick={() => setShowSwitchPicker(false)} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer" }}>×</button>
+                </div>
+              )}
               {statePoStudentId ? (
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>PO: <span style={{ color: GOLD }}>{students.find(s => s.id === statePoStudentId)?.name || "Active"}</span></span>
               ) : !showPinEntry ? (
@@ -1309,12 +1324,12 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
               )}
             </div>
           )}
+          {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", marginLeft: 4 }}>
+              <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>comp</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spec</span>
+            </span>
+          ); })()}
         </div>
-        {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358", textAlign: "center" }}>
-            <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>competitors</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spectators</span>
-          </div>
-        ); })()}
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
             {[{ key: "main", label: "Chamber" }, { key: "docket", label: isCompetitor ? "Splits" : "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
@@ -1614,7 +1629,7 @@ export default function App() {
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={handleSetupStart} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} onReleasePO={handleReleasePO} />;
-  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onSwitch={() => { setCompetitorInfo(null); setView("landing"); }} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
+  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
   if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
   return null;
 }
