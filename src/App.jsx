@@ -892,7 +892,7 @@ function ActiveRound({ config, onCloseRoom }) {
               <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 4 }}>PIN </span>
               <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
             </div>
-            {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length; const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+            {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358" }}>
                 <span style={{ color: GOLD }}>{claimCount}</span> competitors · <span style={{ color: "#7BA3BF" }}>{specCount}</span> spectators
               </div>
@@ -1216,7 +1216,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onSwitch, onCla
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
             {!roundComplete && currentBill && (<div style={{ fontSize: isMobile ? 13 : 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, overflow: "hidden" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", background: "#2a2520", borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>{currentBillIdx + 1}/{docket.length}</span><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentBill.name}</span></div>)}
             {roundComplete && <div style={{ fontSize: 13, color: "#5AE89A", fontFamily: "'DM Mono', monospace" }}>All bills debated</div>}
-            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>{poName ? `PO: ${poName} · ` : ""}{displayName}</div>}
+            {!isMobile && <div style={{ fontSize: 10, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginTop: 1 }}>{statePoStudentId ? `PO: ${students.find(s => s.id === statePoStudentId)?.name || poName} · ` : poName ? `PO: ${poName} · ` : ""}{displayName}</div>}
           </div>
           {isCompetitor && (
             <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
