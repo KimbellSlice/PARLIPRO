@@ -5,7 +5,7 @@ const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; retur
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
-const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
+const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
 const fmtTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 const FONTS_LINK = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap";
@@ -269,7 +269,7 @@ function SetupPhase({ onStart }) {
   const [seatingDirty, setSeatingDirty] = useState(false);
   const [dragIdx, setDragIdx] = useState(null);
   const [seatDrag, setSeatDrag] = useState(null);
-  const [questionPrec, setQuestionPrec] = useState("random");
+  const [questionPrec, setQuestionPrec] = useState("reverse");
   const [roomCode] = useState(generateCode);
   const [poPin] = useState(generatePin);
   const nameRef = useRef(null);
@@ -346,11 +346,11 @@ function SetupPhase({ onStart }) {
           {students.length > 1 && (<div style={{ marginTop: 16, padding: "14px 16px", background: "#2a2520", borderRadius: 8, border: "1px solid #3a3530" }}>
             <label style={{ ...LS, marginBottom: 8 }}>Question Precedence</label>
             <div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>
-              {[{ key: "random", label: "Randomized" }, { key: "match", label: "Match Speaker Order" }].map(o => (
+              {[{ key: "reverse", label: "Reverse Speaker" }, { key: "random", label: "Randomized" }, { key: "match", label: "Match Speaker" }].map(o => (
                 <button key={o.key} onClick={() => setQuestionPrec(o.key)} style={{ flex: 1, padding: "9px 0", background: questionPrec === o.key ? GOLD : "transparent", color: questionPrec === o.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: questionPrec === o.key ? 600 : 400, cursor: "pointer" }}>{o.label}</button>
               ))}
             </div>
-            <p style={{ fontSize: 11, color: "#6b6358", fontStyle: "italic", marginTop: 8, fontFamily: "'DM Mono', monospace" }}>{questionPrec === "random" ? "Question precedence will be shuffled independently of speaker order." : "Question tiebreakers use the same roster order as speeches."}</p>
+            <p style={{ fontSize: 11, color: "#6b6358", fontStyle: "italic", marginTop: 8, fontFamily: "'DM Mono', monospace" }}>{questionPrec === "reverse" ? "Question tiebreakers use reverse roster order — students with lowest speech precedence ask first." : questionPrec === "random" ? "Question precedence will be shuffled independently of speaker order." : "Question tiebreakers use the same roster order as speeches."}</p>
           </div>)}
         </>)}
         {step === "seating" && (<>
@@ -713,7 +713,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   const [inQuestionPeriod, setInQuestionPeriod] = useState(restored?.inQuestionPeriod || false);
   const [lastSpeakerId, setLastSpeakerId] = useState(restored?.lastSpeakerId || null);
   const [savedSpeechSeekers, setSavedSpeechSeekers] = useState([]);
-  const [questionPrec] = useState(restored?.questionPrec || configQuestionPrec || "random");
+  const [questionPrec] = useState(restored?.questionPrec || configQuestionPrec || "reverse");
   const profanity = useProfanityToast();
 
   // Undo stack: stores snapshots of state before each action
@@ -994,6 +994,13 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
               {activeSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>🎤 Speech in progress</div>}
               {!activeSpeech && mode === "question" && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#7BA3BF", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12 }}>❓ Question period</div>}
               <SeatingGrid seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} students={students} seekers={mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers} activeSpeech={activeSpeech} mode={mode} interactive={true} onToggle={toggleSeeker} poStudentId={poStudentId} lastSpeakerId={lastSpeakerId} inQuestionPeriod={inQuestionPeriod} />
+              {(() => { const competitorCount = students.filter(s => s.id !== poStudentId).length; const majority = Math.floor(competitorCount / 2) + 1; const twoThirds = Math.ceil(competitorCount * 2 / 3); return (
+                <div style={{ display: "flex", justifyContent: "center", gap: isMobile ? 16 : 24, marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358" }}>
+                  <span>Members: <span style={{ color: "#9B917F", fontWeight: 600 }}>{competitorCount}</span></span>
+                  <span>Majority: <span style={{ color: GOLD, fontWeight: 600 }}>{majority}</span></span>
+                  <span>2/3: <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{twoThirds}</span></span>
+                </div>
+              ); })()}
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }, { key: "aff", label: "1st Affirmative", bg: "#2D4A3E" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.key === "aff" ? "1st Affirmative" : o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
@@ -1209,7 +1216,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "random", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
@@ -1372,6 +1379,13 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
 
             {/* Seating Chart */}
             <SeatingGrid students={students} seatingSlots={seatingSlots} cols={cols} frontSide={frontSide} interactive={false} locked={true} seekers={seekers} activeSpeech={activeSpeech} isMobile={isMobile} poStudentId={statePoStudentId} lastSpeakerId={state?.lastSpeakerId} inQuestionPeriod={state?.inQuestionPeriod} />
+              {(() => { const competitorCount = students.filter(s => s.id !== statePoStudentId).length; const majority = Math.floor(competitorCount / 2) + 1; const twoThirds = Math.ceil(competitorCount * 2 / 3); return (
+                <div style={{ display: "flex", justifyContent: "center", gap: isMobile ? 16 : 24, marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, color: "#6b6358" }}>
+                  <span>Members: <span style={{ color: "#9B917F", fontWeight: 600 }}>{competitorCount}</span></span>
+                  <span>Majority: <span style={{ color: GOLD, fontWeight: 600 }}>{majority}</span></span>
+                  <span>2/3: <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{twoThirds}</span></span>
+                </div>
+              ); })()}
 
             {/* Competitor: indicate interest in next speech */}
             {isCompetitor && !roundComplete && mode === "speech" && (() => {
