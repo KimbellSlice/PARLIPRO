@@ -257,6 +257,7 @@ function SetupPhase({ onStart }) {
   const [poName, setPoName] = useState("");
   const [roomName, setRoomName] = useState("");
   const [nameInput, setNameInput] = useState("");
+  const [showPasteBox, setShowPasteBox] = useState(false);
   const profanity = useProfanityToast();
   const [students, setStudents] = useState([]);
   const [billInput, setBillInput] = useState("");
@@ -280,6 +281,23 @@ function SetupPhase({ onStart }) {
   useEffect(() => { if (step === "seating") { const ex = seatingSlots.filter(Boolean); setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null)); } }, [rows, cols]);
 
   const addStudent = () => { const n = sanitizeInput(nameInput.trim()); if (!n || students.some(s => s.name.toLowerCase() === n.toLowerCase())) return; if (containsProfanity(n)) { setNameInput(""); profanity.trigger(); return; } setStudents(p => [...p, { id: Date.now() + Math.random(), name: n, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: p.length }]); setNameInput(""); setSeatingDirty(false); nameRef.current?.focus(); };
+  const handlePasteList = (text) => {
+    const names = text.split(/\n/).map(l => sanitizeInput(l.trim())).filter(n => n && n.length > 0);
+    let added = 0, skipped = 0, profane = 0;
+    setStudents(prev => {
+      let next = [...prev];
+      for (const name of names) {
+        if (containsProfanity(name)) { profane++; continue; }
+        if (next.some(s => s.name.toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        next.push({ id: Date.now() + Math.random() + added, name, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: next.length });
+        added++;
+      }
+      return next;
+    });
+    setSeatingDirty(false);
+    setShowPasteBox(false);
+    if (profane > 0) profanity.trigger();
+  };
   const removeStudent = (id) => { setStudents(p => p.filter(s => s.id !== id).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const randomize = () => { setStudents(p => shuffle(p).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const addBill = () => { const n = sanitizeInput(billInput.trim()); if (!n) return; if (containsProfanity(n)) { setBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setBillInput(""); billRef.current?.focus(); };
@@ -329,7 +347,18 @@ function SetupPhase({ onStart }) {
             <div style={{ display: "flex", gap: 8 }}>
               <input ref={nameRef} value={nameInput} onChange={e => setNameInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addStudent()} placeholder="Name, then Enter" aria-label="Student name" style={{ ...IS, width: "auto", flex: 1 }} />
               <button onClick={addStudent} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+              <button onClick={() => setShowPasteBox(p => !p)} style={{ padding: "10px 14px", background: showPasteBox ? "#2a2520" : "transparent", color: showPasteBox ? GOLD : "#9B917F", border: `1px solid ${showPasteBox ? GOLD : "#3a3530"}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Paste List</button>
             </div>
+            {showPasteBox && (
+              <div style={{ marginTop: 10, padding: 14, background: "#2a2520", borderRadius: 8, border: `1px solid ${GOLD}44` }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Paste a list of names (one per line)</div>
+                <textarea id="paste-roster" rows={6} placeholder={"Name 1\nName 2\nName 3\n..."} style={{ width: "100%", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 6, padding: "10px 12px", fontFamily: "'DM Mono', monospace", fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button onClick={() => { const el = document.getElementById("paste-roster"); if (el && el.value.trim()) handlePasteList(el.value); }} style={{ padding: "8px 18px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add All</button>
+                  <button onClick={() => setShowPasteBox(false)} style={{ padding: "8px 14px", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
           {students.length > 1 && <button onClick={randomize} style={{ padding: "7px 16px", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", marginBottom: 16 }}>↻ Randomize Order</button>}
           {students.length > 0 && <p style={{ fontSize: 11, color: "#9B917F", fontStyle: "italic", marginBottom: 10, fontFamily: "'DM Mono', monospace" }}>Order reflects starting speech precedence. Drag to reorder.</p>}
