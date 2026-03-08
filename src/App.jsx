@@ -777,21 +777,26 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     setTimerKey(k => k + 1);
   };
 
-  // Firebase sync
+  // Firebase sync — debounced to batch rapid state changes
+  const syncTimerRef = useRef(null);
   const syncToFirebase = useCallback(() => {
-    const state = {
-      students, seatingSlots, cols, frontSide, docket, roomCode, poName, roomName: roomName || "", poPin: poPin || "",
-      mode, seekers, speechCounter, questionCounter,
-      history: history.map(h => ({ ...h, time: typeof h.time === 'object' ? h.time.getTime() : h.time })),
-      activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
-      speechStartTime: speechStartTime || null,
-      speechElapsed: currentSpeechElapsed.current || 0,
-      affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null,
-    };
-    writeRoomState(roomCode, state).catch(console.error);
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      const state = {
+        students, seatingSlots, docket,
+        mode, seekers, speechCounter, questionCounter,
+        history: history.map(h => ({ ...h, time: typeof h.time === 'object' ? h.time.getTime() : h.time })),
+        activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
+        speechStartTime: speechStartTime || null,
+        speechElapsed: currentSpeechElapsed.current || 0,
+        affCount, negCount, speechSequence, inQuestionPeriod, questionPrec,
+        poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null,
+      };
+      writeRoomState(roomCode, state).catch(console.error);
+    }, 150);
   }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, lastSpeakerId]);
 
-  useEffect(() => { syncToFirebase(); }, [syncToFirebase]);
+  useEffect(() => { syncToFirebase(); return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current); }; }, [syncToFirebase]);
 
   // PO heartbeat — proves this session is active (every 5 seconds)
   useEffect(() => {
@@ -813,12 +818,12 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     return unsub;
   }, [roomCode]);
 
-  // Sync elapsed timer to Firebase every second during speech
+  // Sync elapsed timer to Firebase every 5 seconds during speech (spectators interpolate locally)
   useEffect(() => {
     if (!activeSpeech) return;
     const iv = setInterval(() => {
       updateRoomElapsed(roomCode, currentSpeechElapsed.current).catch(console.error);
-    }, 1000);
+    }, 5000);
     return () => clearInterval(iv);
   }, [activeSpeech, roomCode]);
 
