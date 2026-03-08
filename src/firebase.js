@@ -1,4 +1,5 @@
 import { initializeApp } from 'firebase/app';
+import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { getDatabase, onDisconnect, onValue, ref, remove, set, update } from 'firebase/database';
 
 // Replace with your real Firebase config
@@ -15,6 +16,26 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+const auth = getAuth(app);
+
+// ═══ ANONYMOUS AUTH ═══
+let _authUid = null;
+const _authReady = new Promise((resolve) => {
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      _authUid = user.uid;
+      resolve(user.uid);
+    } else {
+      signInAnonymously(auth).catch(console.error);
+    }
+  });
+});
+
+// Get the current auth UID (resolves once auth is ready)
+export function getAuthUid() { return _authReady; }
+
+// Get the current auth UID synchronously (may be null if not yet ready)
+export function getAuthUidSync() { return _authUid; }
 
 // Staleness threshold — presence is considered stale after this many ms
 export const STALE_MS = 45000;
@@ -79,9 +100,8 @@ export function updateRoomFields(roomCode, fields) {
 
 export function updateHeartbeat(roomCode) {
   const hbRef = ref(db, `rooms/${roomCode}/poHeartbeat`);
-  // Set onDisconnect to clear heartbeat when connection drops
   onDisconnect(hbRef).set(null);
-  return set(hbRef, Date.now());
+  return set(hbRef, { ts: Date.now(), uid: _authUid });
 }
 
 export function clearPOHeartbeat(roomCode) {
@@ -96,9 +116,8 @@ function fbSafe(id) { return String(id).replace(/\./g, '_'); }
 
 export function claimCompetitorName(roomCode, studentId) {
   const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
-  // Auto-remove claim if connection drops
   onDisconnect(claimRef).remove();
-  return update(claimRef, { claimedAt: Date.now() });
+  return update(claimRef, { claimedAt: Date.now(), uid: _authUid });
 }
 
 export function releaseCompetitorName(roomCode, studentId) {
@@ -110,13 +129,16 @@ export function releaseCompetitorName(roomCode, studentId) {
 // ═══ SPECTATOR PRESENCE (with onDisconnect) ═══
 
 export function claimSpectatorPresence(roomCode, spectatorId) {
-  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`);
+  // Use auth UID as spectator ID for security rules
+  const id = spectatorId || _authUid;
+  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(id)}`);
   onDisconnect(presRef).remove();
-  return update(presRef, { heartbeat: Date.now() });
+  return update(presRef, { heartbeat: Date.now(), uid: _authUid });
 }
 
 export function releaseSpectatorPresence(roomCode, spectatorId) {
-  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`);
+  const id = spectatorId || _authUid;
+  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(id)}`);
   onDisconnect(presRef).cancel();
   return set(presRef, null);
 }
@@ -138,11 +160,11 @@ export function claimCompetitorNameAtomic(roomCode, studentId) {
   return new Promise((resolve, reject) => {
     onValue(claimRef, (snapshot) => {
       const existing = snapshot.val();
-      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS) {
+      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS && existing.uid !== _authUid) {
         reject(new Error("Name already claimed"));
       } else {
         onDisconnect(claimRef).remove();
-        update(claimRef, { claimedAt: Date.now() }).then(resolve).catch(reject);
+        update(claimRef, { claimedAt: Date.now(), uid: _authUid }).then(resolve).catch(reject);
       }
     }, { onlyOnce: true });
   });

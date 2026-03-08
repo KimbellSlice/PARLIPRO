@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS } from "./firebase.js";
+import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -156,7 +156,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
       setChecking(false);
       if (!data) { setJoinError("Chamber not found."); return; }
       if (!data.poPin) { setJoinError("This chamber has no PO PIN set."); return; }
-      if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < STALE_MS) {
+      if (data.poHeartbeat && (Date.now() - (data.poHeartbeat.ts || data.poHeartbeat)) < STALE_MS) {
         setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
         return;
       }
@@ -1174,7 +1174,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   }, [wantSpeech, roomCode, competitorId, isCompetitor, state, disconnected]);
 
   // Spectator presence heartbeat (non-competitors only)
-  const [spectatorId] = useState(() => "spec_" + Math.random().toString(36).slice(2, 8));
+  const [spectatorId] = useState(() => getAuthUidSync() || "spec_" + Math.random().toString(36).slice(2, 8));
   useEffect(() => {
     if (isCompetitor || disconnected) return;
     claimSpectatorPresence(roomCode, spectatorId).catch(console.error);
@@ -1210,7 +1210,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     if (!state) return;
     if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
     if (!state.poPin) { setPinError("No PO PIN set for this room."); return; }
-    if (state.poHeartbeat && (Date.now() - state.poHeartbeat) < STALE_MS) {
+    if (state.poHeartbeat && (Date.now() - (state.poHeartbeat.ts || state.poHeartbeat)) < STALE_MS) {
       setPinError("A PO is currently active in this room.");
       return;
     }
