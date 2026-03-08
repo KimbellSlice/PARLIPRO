@@ -1130,7 +1130,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
 }
 
 // ═══ SPECTATOR VIEW ═══
-function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSelectName, createdPin, onDismissPin }) {
+function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSelectName, createdPin, onDismissPin, onGoHome }) {
   const [state, setState] = useState(null);
   const [activeTab, setActiveTab] = useState("main");
   const [disconnected, setDisconnected] = useState(false);
@@ -1241,6 +1241,9 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
           <div style={{ marginTop: 20, fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#9B917F" }}>
             {disconnected ? "Chamber not found or has ended." : "Connecting to chamber..."}
           </div>
+          {disconnected && onGoHome && (
+            <button onClick={onGoHome} style={{ marginTop: 20, padding: "10px 24px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "0.08em" }}>Return Home</button>
+          )}
         </div>
       </div>
     );
@@ -1673,7 +1676,7 @@ export default function App() {
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;
   if (view === "setup") return <SetupPhase onStart={handleSetupStart} />;
   if (view === "active" && config) return <ActiveRound config={config} onCloseRoom={handleCloseRoom} onReleasePO={handleReleasePO} />;
-  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} />;
-  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} />;
+  if (view === "competitor" && competitorInfo) return <SpectatorView roomCode={competitorInfo.roomCode} competitorId={competitorInfo.studentId} competitorName={competitorInfo.studentName} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} onGoHome={() => { setCompetitorInfo(null); setSpectatorCode(null); setView("landing"); }} />;
+  if (view === "spectator" && spectatorCode) return <SpectatorView roomCode={spectatorCode} onClaimPO={handleRejoinPO} onSelectName={handleSelectName} createdPin={createdRoomPin} onDismissPin={() => setCreatedRoomPin(null)} onGoHome={() => { setSpectatorCode(null); setView("landing"); }} />;
   return null;
 }
