@@ -94,10 +94,6 @@ function SpeechTimer({ onTick, isRestore, savedElapsed, savedRunning, onStateCha
   );
 }
 
-function SpectatorTimer({ elapsed = 0 }) {
-  return <div style={{ fontSize: 38, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: elapsed > 180 ? "#C45A5A" : "#E8E0D0", letterSpacing: "0.05em", lineHeight: 1 }}>{fmtTime(elapsed)}</div>;
-}
-
 // ═══ LANDING PAGE ═══
 function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO }) {
   const [joinCode, setJoinCode] = useState("");
@@ -1235,7 +1231,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     }
   };
 
-  const elapsed = state?.activeSpeech ? (state?.speechElapsed || 0) : 0;
 
   if (!state || disconnected) {
     return (
@@ -1405,9 +1400,9 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
         <div style={{ display: isMobile ? "block" : "flex", flex: 1, overflow: isMobile ? undefined : "hidden" }}>
           <div style={{ flex: 1, padding: isMobile ? 12 : 20, overflow: isMobile ? undefined : "auto" }}>
             {/* Current speaker / status */}
-            {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap", marginBottom: 16 }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpectatorTimer elapsed={elapsed} /></div>); })()}
+            {activeSpeech && (() => { const sp = getStudent(activeSpeech.studentId); if (!sp) return null; const col = COLORS[(sp.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap", marginBottom: 16 }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 12 : 14, color: "#5AE89A", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginLeft: "auto" }}>Speech in Progress</div></div>); })()}
 
-            {!activeSpeech && mode === "question" && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#7BA3BF", textTransform: "uppercase" }}>Question Period</span></div>)}
+            {!activeSpeech && mode === "question" && (() => { const lastSp = state?.lastSpeakerId ? getStudent(state.lastSpeakerId) : null; const col = lastSp ? COLORS[(lastSp.initialOrder||0) % COLORS.length] : null; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap", marginBottom: 16 }}>{lastSp && <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #7BA3BF" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{lastSp.name}</div></div></div>}<div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 12 : 14, color: "#7BA3BF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginLeft: lastSp ? "auto" : undefined }}>Questioning Period</div></div>); })()}
 
             {!activeSpeech && mode === "speech" && !roundComplete && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase" }}>Awaiting speakers</span></div>)}
 
