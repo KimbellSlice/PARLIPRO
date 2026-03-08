@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic } from "./firebase.js";
+import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
@@ -160,7 +160,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
       setChecking(false);
       if (!data) { setJoinError("Chamber not found."); return; }
       if (!data.poPin) { setJoinError("This chamber has no PO PIN set."); return; }
-      if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < 15000) {
+      if (data.poHeartbeat && (Date.now() - data.poHeartbeat) < STALE_MS) {
         setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
         return;
       }
@@ -221,7 +221,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
               <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 240, overflow: "auto" }}>
                 {rosterNames.map(s => {
                   const claim = (rosterClaims || {})[fbSafe(s.id)];
-                  const claimedByCompetitor = claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000;
+                  const claimedByCompetitor = claim && claim.claimedAt && (Date.now() - claim.claimedAt) < STALE_MS;
                   const claimedByPO = pendingRoomData?.poStudentId === s.id;
                   const taken = claimedByCompetitor || claimedByPO;
                   return (
@@ -798,7 +798,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     updateHeartbeat(roomCode).catch(console.error);
     const iv = setInterval(() => {
       updateHeartbeat(roomCode).catch(console.error);
-    }, 5000);
+    }, 30000);
     return () => clearInterval(iv);
   }, [roomCode]);
 
@@ -918,6 +918,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   };
 
   const handleCloseRoom = () => {
+    clearPOHeartbeat(roomCode).catch(console.error);
     deleteRoom(roomCode).catch(console.error);
     try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch(e) {}
     onCloseRoom();
@@ -953,7 +954,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                   <button onClick={() => setShowReleasePOConfirm(false)} style={{ padding: "2px 6px", background: "#2a2520", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 3, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>No</button>
                 </div>
               )}
-              {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+              {(() => { const claimCount = Object.keys(competitorClaims).filter(k => { const c = competitorClaims[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < STALE_MS; }).length + (poStudentId ? 1 : 0); const specCount = Object.keys(spectatorPresence).filter(k => { const s = spectatorPresence[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < STALE_MS; }).length; return (
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", marginLeft: 4 }}>
                   <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>comp</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spec</span>
                 </span>
@@ -1159,7 +1160,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     claimCompetitorName(roomCode, competitorId).catch(console.error);
     const iv = setInterval(() => {
       claimCompetitorName(roomCode, competitorId).catch(console.error);
-    }, 5000);
+    }, 30000);
     return () => {
       clearInterval(iv);
       if (!disconnected) releaseCompetitorName(roomCode, competitorId).catch(console.error);
@@ -1178,7 +1179,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     claimSpectatorPresence(roomCode, spectatorId).catch(console.error);
     const iv = setInterval(() => {
       claimSpectatorPresence(roomCode, spectatorId).catch(console.error);
-    }, 5000);
+    }, 30000);
     return () => {
       clearInterval(iv);
       if (!disconnected) releaseSpectatorPresence(roomCode, spectatorId).catch(console.error);
@@ -1208,7 +1209,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     if (!state) return;
     if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
     if (!state.poPin) { setPinError("No PO PIN set for this room."); return; }
-    if (state.poHeartbeat && (Date.now() - state.poHeartbeat) < 15000) {
+    if (state.poHeartbeat && (Date.now() - state.poHeartbeat) < STALE_MS) {
       setPinError("A PO is currently active in this room.");
       return;
     }
@@ -1318,7 +1319,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                     <option value="" disabled>Switch to...</option>
                     {students.filter(s => s.id !== statePoStudentId && String(s.id) !== String(competitorId)).map(s => {
                       const claim = (state?.competitorClaims || {})[fbSafe(s.id)];
-                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000) || s.id === statePoStudentId;
+                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < STALE_MS) || s.id === statePoStudentId;
                       return <option key={s.id} value={s.id} disabled={taken}>{s.name}{taken ? " (taken)" : ""}</option>;
                     })}
                   </select>
@@ -1349,7 +1350,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                     <option value="" disabled>Select name...</option>
                     {students.filter(s => s.id !== statePoStudentId).map(s => {
                       const claim = (state?.competitorClaims || {})[fbSafe(s.id)];
-                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < 15000) || s.id === statePoStudentId;
+                      const taken = (claim && claim.claimedAt && (Date.now() - claim.claimedAt) < STALE_MS) || s.id === statePoStudentId;
                       return <option key={s.id} value={s.id} disabled={taken}>{s.name}{taken ? " (taken)" : ""}</option>;
                     })}
                   </select>
@@ -1360,7 +1361,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               )}
             </div>
           )}
-          {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < 15000; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < 15000; }).length; return (
+          {(() => { const cc = state?.competitorClaims || {}; const sp = state?.spectatorPresence || {}; const claimCount = Object.keys(cc).filter(k => { const c = cc[k]; return c && c.claimedAt && (Date.now() - c.claimedAt) < STALE_MS; }).length + (statePoStudentId ? 1 : 0); const specCount = Object.keys(sp).filter(k => { const s = sp[k]; return s && s.heartbeat && (Date.now() - s.heartbeat) < STALE_MS; }).length; return (
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", marginLeft: 4 }}>
               <span style={{ color: GOLD, fontWeight: 600 }}>{claimCount}/{students.length}</span> <span style={{ color: "#9B917F" }}>comp</span> · <span style={{ color: "#7BA3BF", fontWeight: 600 }}>{specCount}</span> <span style={{ color: "#9B917F" }}>spec</span>
             </span>

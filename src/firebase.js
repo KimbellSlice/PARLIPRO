@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, onValue, ref, remove, set, update } from 'firebase/database';
+import { getDatabase, onDisconnect, onValue, ref, remove, set, update } from 'firebase/database';
 
 // Replace with your real Firebase config
 const firebaseConfig = {
@@ -15,6 +15,9 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
+
+// Staleness threshold — presence is considered stale after this many ms
+export const STALE_MS = 45000;
 
 export function writeRoomState(roomCode, state) {
   return update(ref(db, `rooms/${roomCode}`), {
@@ -57,20 +60,102 @@ export function deleteRoom(roomCode) {
   return remove(ref(db, `rooms/${roomCode}`));
 }
 
+// ═══ INCREMENTAL STATE UPDATES ═══
+// Instead of writing the entire room, update only changed fields
+
 export function updateRoomElapsed(roomCode, elapsed) {
-  return update(ref(db, `rooms/${roomCode}`), { speechElapsed: elapsed, updatedAt: Date.now() });
+  return update(ref(db, `rooms/${roomCode}`), { speechElapsed: elapsed });
 }
 
-export function updateHeartbeat(roomCode) {
-  return update(ref(db, `rooms/${roomCode}`), { poHeartbeat: Date.now() });
+export function updateRoomField(roomCode, field, value) {
+  return update(ref(db, `rooms/${roomCode}`), { [field]: value, updatedAt: Date.now() });
 }
+
+export function updateRoomFields(roomCode, fields) {
+  return update(ref(db, `rooms/${roomCode}`), { ...fields, updatedAt: Date.now() });
+}
+
+// ═══ PO PRESENCE (with onDisconnect) ═══
+
+export function updateHeartbeat(roomCode) {
+  const hbRef = ref(db, `rooms/${roomCode}/poHeartbeat`);
+  // Set onDisconnect to clear heartbeat when connection drops
+  onDisconnect(hbRef).set(null);
+  return set(hbRef, Date.now());
+}
+
+export function clearPOHeartbeat(roomCode) {
+  const hbRef = ref(db, `rooms/${roomCode}/poHeartbeat`);
+  onDisconnect(hbRef).cancel();
+  return set(hbRef, null);
+}
+
+// ═══ COMPETITOR PRESENCE (with onDisconnect) ═══
+
+function fbSafe(id) { return String(id).replace(/\./g, '_'); }
+
+export function claimCompetitorName(roomCode, studentId) {
+  const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
+  // Auto-remove claim if connection drops
+  onDisconnect(claimRef).remove();
+  return update(claimRef, { claimedAt: Date.now() });
+}
+
+export function releaseCompetitorName(roomCode, studentId) {
+  const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
+  onDisconnect(claimRef).cancel();
+  return set(claimRef, null);
+}
+
+// ═══ SPECTATOR PRESENCE (with onDisconnect) ═══
+
+export function claimSpectatorPresence(roomCode, spectatorId) {
+  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`);
+  onDisconnect(presRef).remove();
+  return update(presRef, { heartbeat: Date.now() });
+}
+
+export function releaseSpectatorPresence(roomCode, spectatorId) {
+  const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`);
+  onDisconnect(presRef).cancel();
+  return set(presRef, null);
+}
+
+// ═══ COMPETITOR INTENTS & SPLITS ═══
+
+export function updateCompetitorIntent(roomCode, studentId, intentType, value) {
+  return update(ref(db, `rooms/${roomCode}/competitorIntents/${fbSafe(studentId)}`), { [intentType]: value });
+}
+
+export function updateCompetitorSplit(roomCode, studentId, billId, side) {
+  return update(ref(db, `rooms/${roomCode}/splits/${fbSafe(studentId)}`), { [fbSafe(billId)]: side });
+}
+
+// ═══ ATOMIC CLAIM ═══
+
+export function claimCompetitorNameAtomic(roomCode, studentId) {
+  const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
+  return new Promise((resolve, reject) => {
+    onValue(claimRef, (snapshot) => {
+      const existing = snapshot.val();
+      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS) {
+        reject(new Error("Name already claimed"));
+      } else {
+        onDisconnect(claimRef).remove();
+        update(claimRef, { claimedAt: Date.now() }).then(resolve).catch(reject);
+      }
+    }, { onlyOnce: true });
+  });
+}
+
+// ═══ ROOM CLEANUP ═══
 
 export function cleanupStaleRooms() {
   const roomsRef = ref(db, 'rooms');
   onValue(roomsRef, (snapshot) => {
     const data = snapshot.val();
     if (!data) return;
-    const cutoff = Date.now() - (24 * 60 * 60 * 1000);
+    const cutoff = Date.now() - (12 * 60 * 60 * 1000); // 12 hours
     Object.keys(data).forEach(code => {
       const room = data[code];
       if (room.updatedAt && room.updatedAt < cutoff) {
@@ -78,51 +163,4 @@ export function cleanupStaleRooms() {
       }
     });
   }, { onlyOnce: true });
-}
-
-// Helper: make IDs safe for Firebase paths (no dots)
-function fbSafe(id) { return String(id).replace(/\./g, '_'); }
-
-// Competitor: set speech/question intent
-export function updateCompetitorIntent(roomCode, studentId, intentType, value) {
-  return update(ref(db, `rooms/${roomCode}/competitorIntents/${fbSafe(studentId)}`), { [intentType]: value });
-}
-
-// Competitor: set split for a bill
-export function updateCompetitorSplit(roomCode, studentId, billId, side) {
-  return update(ref(db, `rooms/${roomCode}/splits/${fbSafe(studentId)}`), { [fbSafe(billId)]: side });
-}
-
-// Competitor: claim a name (heartbeat)
-export function claimCompetitorName(roomCode, studentId) {
-  return update(ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`), { claimedAt: Date.now() });
-}
-
-// Competitor: release a name claim
-export function releaseCompetitorName(roomCode, studentId) {
-  return set(ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`), null);
-}
-
-// Spectator: heartbeat (track active spectators)
-export function claimSpectatorPresence(roomCode, spectatorId) {
-  return update(ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`), { heartbeat: Date.now() });
-}
-
-export function releaseSpectatorPresence(roomCode, spectatorId) {
-  return set(ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(spectatorId)}`), null);
-}
-
-// Atomic claim with transaction-like check
-export function claimCompetitorNameAtomic(roomCode, studentId) {
-  const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
-  return new Promise((resolve, reject) => {
-    onValue(claimRef, (snapshot) => {
-      const existing = snapshot.val();
-      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < 15000) {
-        reject(new Error("Name already claimed"));
-      } else {
-        update(claimRef, { claimedAt: Date.now() }).then(resolve).catch(reject);
-      }
-    }, { onlyOnce: true });
-  });
 }
