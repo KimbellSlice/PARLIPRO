@@ -121,6 +121,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
   const [checking, setChecking] = useState(false);
   const [showPinEntry, setShowPinEntry] = useState(false);
   const [showNamePicker, setShowNamePicker] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const [rosterNames, setRosterNames] = useState([]);
   const [rosterClaims, setRosterClaims] = useState({});
   const [pendingRoomData, setPendingRoomData] = useState(null);
@@ -262,7 +263,46 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
 
           {joinError && <div style={{ color: "#C45A5A", fontFamily: "'DM Mono', monospace", fontSize: 12 }}>{joinError}</div>}
         </div>
-        <div style={{ marginTop: 40, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Built for NSDA / TFA Congressional Debate</div>
+        <button onClick={() => setShowAbout(true)} style={{ marginTop: 32, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", textDecoration: "underline", padding: 0 }}>What is ParliPro?</button>
+        <div style={{ marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Built for NSDA / TFA Congressional Debate</div>
+
+        {showAbout && (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20 }} onClick={() => setShowAbout(false)}>
+            <div onClick={e => e.stopPropagation()} style={{ background: "#231f1b", border: `1px solid ${GOLD}44`, borderRadius: 14, padding: "32px 28px", maxWidth: 480, width: "100%", maxHeight: "85vh", overflowY: "auto", color: "#E8E0D0" }}>
+              <div style={{ textAlign: "center", marginBottom: 20 }}>
+                <img src="/PARLIPRO.png" alt="ParliPro" style={{ height: 60, display: "block", margin: "0 auto 10px" }} />
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>What is ParliPro?</div>
+              </div>
+              <p style={{ fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>ParliPro is a free, real-time parliamentary tool built for <b>NSDA and TFA Congressional Debate</b>. It helps Presiding Officers run chambers smoothly and gives every competitor a live view of the round.</p>
+              
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>How It Works</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+                {[
+                  { icon: "🏛", title: "Create a Chamber", desc: "Set up the roster, seating chart, and docket. Share the chamber code with participants." },
+                  { icon: "🎤", title: "Claim Your Role", desc: "Competitors select their name. The PO claims the chair with a private PIN." },
+                  { icon: "📊", title: "Track Everything Live", desc: "Speech & question precedence, alternating sides, 30-second questioning blocks, bill splits, and vote thresholds — all in real time." },
+                  { icon: "📱", title: "Everyone Follows Along", desc: "Competitors see the queue, indicate speech interest, and set bill splits from their phone." },
+                ].map((item, i) => (
+                  <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", background: "#2a2520", borderRadius: 8, border: "1px solid #3a3530" }}>
+                    <span style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</span>
+                    <div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{item.title}</div><div style={{ fontSize: 12, color: "#9B917F", lineHeight: 1.5 }}>{item.desc}</div></div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Key Features</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 20, fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F" }}>
+                {["Speech Precedence", "Question Blocks", "Bill Splits", "Live Seating Chart", "Vote Thresholds", "Session Recaps", "Interest Signaling", "PO Release & Transfer"].map((f, i) => (
+                  <div key={i} style={{ padding: "6px 10px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530" }}>{f}</div>
+                ))}
+              </div>
+
+              <p style={{ fontSize: 12, color: "#6b6358", lineHeight: 1.5, marginBottom: 20 }}>ParliPro is free to use. No account required. Just create a chamber, share the code, and start debating.</p>
+
+              <button onClick={() => setShowAbout(false)} style={{ width: "100%", padding: "12px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em" }}>Got It</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
