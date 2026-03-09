@@ -265,6 +265,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
         </div>
         <button onClick={() => setShowAbout(true)} style={{ marginTop: 32, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", textDecoration: "underline", padding: 0 }}>What is ParliPro?</button>
         <div style={{ marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Built for NSDA / TFA Congressional Debate</div>
+        <div style={{ marginTop: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>© 2025 ParliPro. All rights reserved.</div>
 
         {showAbout && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20 }} onClick={() => setShowAbout(false)}>
