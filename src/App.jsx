@@ -280,8 +280,8 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
                 {[
                   { title: "Create a Chamber", desc: "Set up the roster, initial precedence, seating chart, and docket, then share the chamber code with participants." },
                   { title: "Claim Your Role", desc: "When joining a chamber, competitors select their name from the roster. Once a PO has been decided, they can claim the role with a private PIN provided by the parliamentarian." },
-                  { title: "Track Everything Live", desc: "Track speech & question precedence, bill splits, vote thresholds, and round summaries — all in real time." },
-                  { title: "Everyone Follows Along", desc: "Set bill splits, see live speaker and questioning precedence, and indicate intent to speak from their computer or phone." },
+                  { title: "Run the Round", desc: "The PO selects speakers from the seating chart, manages speech and questioning timers, tracks alternating sides, calls votes on bills, and controls the flow of debate from their device." },
+                  { title: "Follow Along in Real Time", desc: "Competitors can set bill splits, see live speaker and questioning precedence, indicate intent to speak, and track vote thresholds and round summaries — all from a computer or phone." },
                 ].map((item, i) => (
                   <div key={i} style={{ padding: "14px 16px", background: "#2a2520", borderRadius: 8, border: "1px solid #3a3530", textAlign: "center" }}>
                     <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
