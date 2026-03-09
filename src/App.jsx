@@ -278,26 +278,19 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>How It Works</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
                 {[
-                  { icon: "🏛", title: "Create a Chamber", desc: "Set up the roster, seating chart, and docket. Share the chamber code with participants." },
-                  { icon: "🎤", title: "Claim Your Role", desc: "Competitors select their name. The PO claims the chair with a private PIN." },
-                  { icon: "📊", title: "Track Everything Live", desc: "Speech & question precedence, alternating sides, 30-second questioning blocks, bill splits, and vote thresholds — all in real time." },
-                  { icon: "📱", title: "Everyone Follows Along", desc: "Competitors see the queue, indicate speech interest, and set bill splits from their phone." },
+                  { title: "Create a Chamber", desc: "Set up the roster, initial precedence, seating chart, and docket, then share the chamber code with participants." },
+                  { title: "Claim Your Role", desc: "When joining a chamber, competitors select their name from the roster. Once a PO has been decided, they can claim the role with a private PIN provided by the parliamentarian." },
+                  { title: "Track Everything Live", desc: "Track speech & question precedence, bill splits, vote thresholds, and round summaries — all in real time." },
+                  { title: "Everyone Follows Along", desc: "Set bill splits, see live speaker and questioning precedence, and indicate intent to speak from their computer or phone." },
                 ].map((item, i) => (
-                  <div key={i} style={{ display: "flex", gap: 12, padding: "10px 12px", background: "#2a2520", borderRadius: 8, border: "1px solid #3a3530" }}>
-                    <span style={{ fontSize: 20, flexShrink: 0 }}>{item.icon}</span>
-                    <div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, marginBottom: 2 }}>{item.title}</div><div style={{ fontSize: 12, color: "#9B917F", lineHeight: 1.5 }}>{item.desc}</div></div>
+                  <div key={i} style={{ padding: "14px 16px", background: "#2a2520", borderRadius: 8, border: "1px solid #3a3530", textAlign: "center" }}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, marginBottom: 4 }}>{item.title}</div>
+                    <div style={{ fontSize: 12, color: "#9B917F", lineHeight: 1.5 }}>{item.desc}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Key Features</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 20, fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F" }}>
-                {["Speech Precedence", "Question Blocks", "Bill Splits", "Live Seating Chart", "Vote Thresholds", "Session Recaps", "Interest Signaling", "PO Release & Transfer"].map((f, i) => (
-                  <div key={i} style={{ padding: "6px 10px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530" }}>{f}</div>
-                ))}
-              </div>
-
-              <p style={{ fontSize: 12, color: "#6b6358", lineHeight: 1.5, marginBottom: 20 }}>ParliPro is free to use. No account required. Just create a chamber, share the code, and start debating.</p>
+              <p style={{ fontSize: 12, color: "#6b6358", lineHeight: 1.5, marginBottom: 20, textAlign: "center" }}>ParliPro is free to use. No account required. Just create a chamber, share the code, and start debating.</p>
 
               <button onClick={() => setShowAbout(false)} style={{ width: "100%", padding: "12px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em" }}>Got It</button>
             </div>
