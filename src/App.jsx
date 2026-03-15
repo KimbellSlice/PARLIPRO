@@ -826,7 +826,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   const [undoStack, setUndoStack] = useState([]);
 
   const currentBill = docket[currentBillIdx] || null;
-  const roundComplete = currentBillIdx >= docket.length;
+  const roundComplete = docket.length > 0 && currentBillIdx >= docket.length;
   const getStudent = (id) => students.find(s => s.id === id);
 
   const captureSnapshot = () => ({
@@ -863,7 +863,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         students, seatingSlots, docket,
         mode, seekers, speechCounter, questionCounter,
         history: history.map(h => ({ ...h, time: typeof h.time === 'object' ? h.time.getTime() : h.time })),
-        activeSpeech, currentBillIdx, roundComplete: currentBillIdx >= docket.length,
+        activeSpeech, currentBillIdx, roundComplete: docket.length > 0 && currentBillIdx >= docket.length,
         speechStartTime: speechStartTime || null,
         speechElapsed: currentSpeechElapsed.current || 0,
         affCount, negCount, speechSequence, inQuestionPeriod, questionPrec,
