@@ -892,6 +892,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
       setCompetitorClaims(data?.competitorClaims || {});
       setSpectatorPresence(data?.spectatorPresence || {});
       if (data?.docketProposals) setDocketProposals(data.docketProposals);
+      else setDocketProposals({});
       if (data?.docketAdopted && !docketAdopted) { setDocketAdopted(true); if (data.docket) setDocket(data.docket); }
     });
     return unsub;
@@ -914,6 +915,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
       activeSpeech, pendingSpeaker, affCount, negCount, speechSequence,
       currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec, lastSpeakerId, questionBlockNum,
       timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running,
+      legislationPack, docketAdopted, poStudentId,
     };
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
