@@ -918,7 +918,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
 
-  const toggleSeeker = (id) => { if (id === poStudentId) return; if (inQuestionPeriod && id === lastSpeakerId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
+  const toggleSeeker = (id) => { if (!docketAdopted) return; if (id === poStudentId) return; if (inQuestionPeriod && id === lastSpeakerId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
   const activeSeekers = mode === "speech" && inQuestionPeriod ? savedSpeechSeekers : seekers;
   const sortedSeekers = (() => sortPrec(activeSeekers.map(id => getStudent(id)).filter(Boolean), mode, questionPrec))();
 
@@ -1056,9 +1056,12 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
-            {[{ key: "main", label: "Chamber" }, { key: "splits", label: "Splits" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
-              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
-            ))}
+            {[{ key: "main", label: "Chamber" }, { key: "splits", label: "Splits" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => {
+              const needsAttention = t.key === "docket" && !docketAdopted;
+              return (
+              <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? (needsAttention ? "#C45A5A" : GOLD) : needsAttention ? "#4A2D2D" : "transparent", color: activeTab === t.key ? "#1a1a1a" : needsAttention ? "#E8A0A0" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key || needsAttention ? 600 : 400, cursor: "pointer", textTransform: "uppercase", animation: needsAttention && activeTab !== t.key ? "none" : "none" }}>{t.label}{needsAttention && activeTab !== t.key ? " !" : ""}</button>
+              );
+            })}
           </div>
           {!isMobile && <div style={{ background: "#2a2520", borderRadius: 6, padding: "5px 10px", border: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ fontSize: 9, color: "#9B917F" }}>CHAMBER </span>
@@ -1252,9 +1255,9 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                 <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted by competitors yet.</div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {Object.entries(docketProposals).map(([safeId, proposal]) => (
+                  {(() => { const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0)); const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; }; return allProposals.map(([safeId, proposal]) => (
                     <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{proposal.name}</div>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
                       {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
@@ -1264,7 +1267,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                       ); })}
                       <button onClick={() => setAdoptConfirmPO(safeId)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt This Docket</button>
                     </div>
-                  ))}
+                  )); })()}
                 </div>
               )}
             </div>
@@ -1730,22 +1733,20 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Enter splits to generate recommendations</div>; })()}
             </div>
 
-            {/* Submitted Dockets */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Submitted Dockets ({Object.keys(docketProposals).length})</div>
-              {Object.keys(docketProposals).length === 0 ? (
-                <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted yet. {isCompetitor ? "Be the first!" : ""}</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {Object.entries(docketProposals).map(([safeId, proposal]) => {
-                    const isOwn = isCompetitor && safeId === fbSafe(competitorId);
-                    return (
-                      <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: isOwn ? `1px solid ${GOLD}44` : "1px solid #3a3530", padding: "14px 16px" }}>
+            {/* My Submitted Dockets */}
+            {isCompetitor && (() => {
+              const myProposals = Object.entries(docketProposals).filter(([safeId]) => safeId === fbSafe(competitorId));
+              const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0));
+              const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; };
+              return myProposals.length > 0 ? (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>My Submitted Dockets</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {myProposals.map(([safeId, proposal]) => (
+                      <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600 }}>{proposal.name}</span>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            {isOwn && <button onClick={() => { withdrawDocketProposal(roomCode, competitorId).catch(console.error); }} style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#C45A5A", background: "none", border: "1px solid #6B3A3A", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Withdraw</button>}
-                          </div>
+                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600 }}>{getLabel(safeId)} — {proposal.name}</span>
+                          <button onClick={() => { withdrawDocketProposal(roomCode, competitorId).catch(console.error); }} style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#C45A5A", background: "none", border: "1px solid #6B3A3A", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Withdraw</button>
                         </div>
                         {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = bill ? getSplitTotals(bill.id) : null; return (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
@@ -1755,20 +1756,51 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                           </div>
                         ); })}
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
+              ) : null;
+            })()}
 
-            {/* Nominate a Docket (competitors only) */}
+            {/* Other Submitted Dockets */}
+            {(() => {
+              const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0));
+              const otherProposals = isCompetitor ? allProposals.filter(([safeId]) => safeId !== fbSafe(competitorId)) : allProposals;
+              const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; };
+              return (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>{isCompetitor ? "Other" : ""} Submitted Dockets ({otherProposals.length})</div>
+                  {otherProposals.length === 0 ? (
+                    <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No other dockets submitted yet.</div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {otherProposals.map(([safeId, proposal]) => (
+                        <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
+                          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
+                          {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = bill ? getSplitTotals(bill.id) : null; return (
+                            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
+                              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                              <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
+                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                            </div>
+                          ); })}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {/* Submit a Docket (competitors only) */}
             {isCompetitor && (
               <div>
                 {!showNominate ? (
-                  <button onClick={() => { setShowNominate(true); setNominationBills([]); }} style={{ width: "100%", padding: "12px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Nominate a Docket</button>
+                  <button onClick={() => { setShowNominate(true); setNominationBills([]); }} style={{ width: "100%", padding: "12px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Submit a Docket</button>
                 ) : (
                   <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "16px" }}>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Nominate a Docket</div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>Submit a Docket</div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", fontStyle: "italic", marginBottom: 12 }}>Only submit if different from the Recommended Docket</div>
                     <div style={{ display: isMobile ? "block" : "flex", gap: 16 }}>
                       {/* Your Docket (top on mobile, right on desktop) */}
                       <div style={{ flex: 1, marginBottom: isMobile ? 16 : 0, order: isMobile ? -1 : 1 }}>
@@ -1804,6 +1836,11 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                       <button onClick={() => {
                         if (nominationBills.length === 0) return;
                         const proposalKey = nominationBills.join(",");
+                        // Check against recommended docket
+                        const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId);
+                        const recKey = rec.map(b => String(b.id)).join(",");
+                        if (proposalKey === recKey) { alert("This matches the Recommended Docket. Only submit if your docket is different."); return; }
+                        // Check against all submitted dockets
                         const existing = Object.values(docketProposals).some(p => (p.bills || []).join(",") === proposalKey);
                         if (existing) { alert("This exact docket has already been submitted."); return; }
                         submitDocketProposal(roomCode, competitorId, competitorName, nominationBills).catch(console.error);
