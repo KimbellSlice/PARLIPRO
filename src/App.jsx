@@ -1,11 +1,31 @@
-import { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync } from "./firebase.js";
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
 const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
+
+// Compute recommended docket: top 5 bills by debate score (interest × balance)
+const computeRecommendedDocket = (legislationPack, splits, poStudentId) => {
+  if (!legislationPack || legislationPack.length === 0) return [];
+  const scored = legislationPack.map(bill => {
+    let aff = 0, neg = 0;
+    if (splits) Object.entries(splits).forEach(([safeId, studentSplits]) => {
+      if (poStudentId && safeId === fbSafe(poStudentId)) return;
+      const s = studentSplits[fbSafe(bill.id)];
+      if (s === "aff") aff++;
+      else if (s === "neg") neg++;
+      else if (s === "both") { aff++; neg++; }
+    });
+    const interest = aff + neg;
+    const balance = interest > 0 ? 1 - Math.abs(aff - neg) / interest : 0;
+    const score = interest * (0.5 + 0.5 * balance);
+    return { ...bill, aff, neg, interest, balance, score };
+  });
+  return scored.sort((a, b) => b.score - a.score || b.interest - a.interest).slice(0, Math.min(5, scored.length));
+};
 const fmtTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
 const FONTS_LINK = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap";
@@ -387,7 +407,7 @@ function SetupPhase({ onStart }) {
           <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Chamber name" style={IS} />
         </div>
         <div style={{ display: "flex", marginBottom: 24, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530" }}>
-          {[{ key: "roster", label: "Roster", done: hasRoster }, { key: "seating", label: "Seating", done: hasSeating }, { key: "docket", label: "Docket", done: hasDocket }].map(t => (
+          {[{ key: "roster", label: "Roster", done: hasRoster }, { key: "seating", label: "Seating", done: hasSeating }, { key: "docket", label: "Legislation", done: hasDocket }].map(t => (
             <button key={t.key} onClick={() => setStep(t.key)} style={{ flex: 1, padding: "11px 0", background: step === t.key ? GOLD : "transparent", color: step === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: step === t.key ? 600 : 400, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, textTransform: "uppercase" }}>{t.label}{check(t.done)}</button>
           ))}
         </div>
@@ -463,7 +483,7 @@ function SetupPhase({ onStart }) {
               <button onClick={addBill} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
             </div>
           </div>
-          <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Bills debated in this order.</p>
+          <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Add all bills from the legislation pack. The docket will be decided after the chamber opens.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {docket.map((b, idx) => (
               <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -783,6 +803,10 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   const [showReleasePOConfirm, setShowReleasePOConfirm] = useState(false);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
+  const [docketProposals, setDocketProposals] = useState({});
+  const [docketAdopted, setDocketAdopted] = useState(!!config.docketAdopted);
+  const [adoptConfirmPO, setAdoptConfirmPO] = useState(null);
+  const legislationPack = config.legislationPack || config.docket || [];
   const [competitorClaims, setCompetitorClaims] = useState({});
   const [spectatorPresence, setSpectatorPresence] = useState({});
   const isMobile = useIsMobile();
@@ -843,7 +867,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         speechStartTime: speechStartTime || null,
         speechElapsed: currentSpeechElapsed.current || 0,
         affCount, negCount, speechSequence, inQuestionPeriod, questionPrec,
-        poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null, questionBlockNum: questionBlockNum || 0,
+        poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null, questionBlockNum: questionBlockNum || 0, docketAdopted,
       };
       writeRoomState(roomCode, state).catch(console.error);
     }, 150);
@@ -867,6 +891,8 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
       if (data?.splits) setCompetitorSplits(data.splits);
       setCompetitorClaims(data?.competitorClaims || {});
       setSpectatorPresence(data?.spectatorPresence || {});
+      if (data?.docketProposals) setDocketProposals(data.docketProposals);
+      if (data?.docketAdopted && !docketAdopted) { setDocketAdopted(true); if (data.docket) setDocket(data.docket); }
     });
     return unsub;
   }, [roomCode]);
@@ -1030,7 +1056,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" aria-label="View tabs" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
-            {[{ key: "main", label: "Chamber" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
+            {[{ key: "main", label: "Chamber" }, { key: "splits", label: "Splits" }, { key: "docket", label: "Docket" }, { key: "roster", label: "Roster" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 7px" : "6px 10px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
@@ -1124,7 +1150,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                 )}
                 {!activeQuestioner && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic", marginTop: 6 }}>{blocksExhausted ? "All question blocks used" : "Select a questioner from the queue to begin"}</div>}
               </div>); })()}
-              {!activeSpeech && !pendingSpeaker && mode === "speech" && activeSeekers.length === 0 && (<div style={{ padding: "8px 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>{nextInfo.needsChoice ? "Recognize a speaker to begin the first speech" : `Next: ${nextInfo.label}`}</div>)}
+              {!activeSpeech && !pendingSpeaker && mode === "speech" && activeSeekers.length === 0 && (<div style={{ padding: "8px 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>{!docketAdopted ? "Adopt a docket from the Docket tab to begin" : nextInfo.needsChoice ? "Recognize a speaker to begin the first speech" : `Next: ${nextInfo.label}`}</div>)}
             </div>
             {/* Mobile queue toggle button */}
             {isMobile && (
@@ -1166,10 +1192,112 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
             <button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button>
           </div>
         </div>
+      ) : activeTab === "splits" ? (
+        <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Chamber Splits</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {(() => {
+              const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
+              const billsToShow = docketAdopted
+                ? [...docket, ...legislationPack.filter(b => !docketIds.includes(String(b.id)))]
+                : legislationPack;
+              const dividerIdx = docketAdopted ? docket.length : -1;
+              return billsToShow.map((b, i) => {
+                const inDocket = !docketAdopted || i < dividerIdx;
+                const totals = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })();
+                return (
+                  <React.Fragment key={b.id}>
+                    {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1 }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                      {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span> / <span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>}
+                    </div>
+                  </React.Fragment>
+                );
+              });
+            })()}
+          </div>
+        </div>
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={poStudentId} />
       ) : activeTab === "docket" ? (
-        <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
+        docketAdopted ? (
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
+        ) : (
+          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
+
+            {/* Recommended Docket */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket</div>
+              {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId); return rec.length > 0 ? (
+                <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
+                  {rec.map((b, i) => (
+                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
+                    </div>
+                  ))}
+                  <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
+                </div>
+              ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Waiting for competitor splits...</div>; })()}
+            </div>
+
+            {/* Submitted Proposals */}
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Submitted Dockets ({Object.keys(docketProposals).length})</div>
+              {Object.keys(docketProposals).length === 0 ? (
+                <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted by competitors yet.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(docketProposals).map(([safeId, proposal]) => (
+                    <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
+                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{proposal.name}</div>
+                      {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
+                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
+                          {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                        </div>
+                      ); })}
+                      <button onClick={() => setAdoptConfirmPO(safeId)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt This Docket</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Adopt confirmation modal */}
+            {adoptConfirmPO && (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+                <div style={{ background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 380, textAlign: "center" }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Adopt Docket?</div>
+                  <p style={{ fontSize: 14, color: "#E8E0D0", marginBottom: 20 }}>This will set the official docket for the round. You can still edit it later.</p>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setAdoptConfirmPO(null)} style={{ flex: 1, padding: "10px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+                    <button onClick={() => {
+                      let billIds;
+                      if (adoptConfirmPO === "recommended") {
+                        billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId).map(b => String(b.id));
+                      } else {
+                        const proposal = docketProposals[adoptConfirmPO];
+                        billIds = proposal?.bills || [];
+                      }
+                      adoptDocket(roomCode, billIds, legislationPack).then(() => {
+                        const newDocket = billIds.map(id => legislationPack.find(b => String(b.id) === String(id))).filter(Boolean).map(b => ({ ...b, status: null }));
+                        setDocket(newDocket);
+                        setDocketAdopted(true);
+                      }).catch(console.error);
+                      setAdoptConfirmPO(null);
+                    }} style={{ flex: 1, padding: "10px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Adopt</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
       ) : (
@@ -1226,6 +1354,10 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   const [showSwitchPicker, setShowSwitchPicker] = useState(false);
   const [showPrec, setShowPrec] = useState(!isMobile);
   const [expandedSplitBill, setExpandedSplitBill] = useState(null);
+  const [nominationBills, setNominationBills] = useState([]);
+  const [showNominate, setShowNominate] = useState(false);
+  const [nominateDragIdx, setNominateDragIdx] = useState(null);
+  const [adoptConfirm, setAdoptConfirm] = useState(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const isCompetitor = !!competitorId;
@@ -1333,7 +1465,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
@@ -1456,7 +1588,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "space-between" : undefined }}>
           <div role="tablist" style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530", flexShrink: 0 }}>
-            {[{ key: "main", label: "Chamber" }, { key: "docket", label: isCompetitor ? "Splits" : "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
+            {[{ key: "main", label: "Chamber" }, { key: "splits", label: "Splits" }, { key: "docket", label: "Docket" }, { key: "orders", label: "Orders" }, { key: "log", label: "Log" }].map(t => (
               <button key={t.key} role="tab" aria-selected={activeTab === t.key} onClick={() => setActiveTab(t.key)} style={{ padding: isMobile ? "6px 8px" : "6px 12px", background: activeTab === t.key ? GOLD : "transparent", color: activeTab === t.key ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 9 : 10, fontWeight: activeTab === t.key ? 600 : 400, cursor: "pointer", textTransform: "uppercase" }}>{t.label}</button>
             ))}
           </div>
@@ -1491,7 +1623,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
 
             {!activeSpeech && mode === "question" && (() => { const lastSp = state?.lastSpeakerId ? getStudent(state.lastSpeakerId) : null; const col = lastSp ? COLORS[(lastSp.initialOrder||0) % COLORS.length] : null; const lastSpeech = (history || []).find(h => h.type === "speech"); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap", marginBottom: 16 }}>{lastSp && <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #7BA3BF" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{lastSp.name}</div></div><div>{lastSpeech && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{lastSpeech.side}</div>}{lastSpeech && <div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>Speech #{lastSpeech.number} — {fmtTime(lastSpeech.duration || 0)}</div>}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 13, color: "#7BA3BF", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", marginLeft: 12 }}>Questioning Period</div></div>}</div>); })()}
 
-            {!activeSpeech && mode === "speech" && !roundComplete && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase" }}>Awaiting speakers</span></div>)}
+            {!activeSpeech && mode === "speech" && !roundComplete && (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: "12px 20px", marginBottom: 16 }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", textTransform: "uppercase" }}>{!docketAdopted ? "Awaiting docket adoption" : "Awaiting speakers"}</span></div>)}
 
 
             {/* Seating Chart */}
@@ -1537,51 +1669,156 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
         </div>
       ) : activeTab === "main" && roundComplete ? (
         <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 40 }}><div style={{ textAlign: "center" }}><div style={{ fontSize: 11, fontFamily: "'DM Mono', monospace", color: "#5AE89A", letterSpacing: "0.2em", textTransform: "uppercase", marginBottom: 12 }}>All legislation debated</div><button onClick={() => setActiveTab("orders")} style={{ padding: "10px 24px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>View Orders of the Day</button></div></div>
-      ) : activeTab === "docket" ? (
-        isCompetitor ? (
-          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto", minWidth: isMobile ? undefined : 480 }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>My Splits</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {docket.map((b, i) => {
-                const mySplit = (splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "";
+      ) : activeTab === "splits" ? (
+        <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto", minWidth: isMobile ? undefined : 480 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>{isCompetitor ? "My Splits" : "Splits"}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {(() => {
+              const legPack = legislationPack.length > 0 ? legislationPack : docket; const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
+              const billsToShow = docketAdopted
+                ? [...docket, ...legPack.filter(b => !docketIds.includes(String(b.id)))]
+                : legPack;
+              const dividerIdx = docketAdopted ? docket.length : -1;
+              return billsToShow.map((b, i) => {
+                const inDocket = !docketAdopted || i < dividerIdx;
+                const mySplit = isCompetitor ? ((splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "") : "";
                 const totals = getSplitTotals(b.id);
-                const isPast = !!b.status;
+                const isPast = docketAdopted && inDocket && !!b.status;
                 return (
-                  <div key={b.id || i} style={{ padding: isMobile ? "16px" : "20px", background: "#2a2520", borderRadius: 10, border: i === currentBillIdx && !roundComplete ? `2px solid ${GOLD}` : "1px solid #3a3530", opacity: isPast ? 0.5 : 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: isPast ? 0 : 14 }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", fontWeight: 600 }}>{i + 1}.</span>
-                      <span style={{ flex: 1, fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{b.name}</span>
-                      {b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
-                    </div>
-                    {!isPast && (
-                      <>
+                  <React.Fragment key={b.id || i}>
+                    {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
+                    <div style={{ padding: isMobile ? "16px" : "20px", background: "#2a2520", borderRadius: 10, border: docketAdopted && inDocket && i === currentBillIdx && !roundComplete ? `2px solid ${GOLD}` : "1px solid #3a3530", opacity: !inDocket ? 0.4 : isPast ? 0.5 : 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: (isCompetitor && inDocket && !isPast) ? 14 : 0 }}>
+                        <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", fontWeight: 600 }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
+                        <span style={{ flex: 1, fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{b.name}</span>
+                        {isPast && b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
+                        {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                      </div>
+                      {isCompetitor && inDocket && !isPast && (
                         <div style={{ display: "flex", gap: 10, minWidth: 280 }}>
                           {["aff", "neg", "both"].map(opt => (
                             <button key={opt} onClick={() => handleSplitChange(b.id, mySplit === opt ? "" : opt)} style={{ flex: 1, padding: isMobile ? "16px 12px" : "18px 16px", background: mySplit === opt ? (opt === "aff" ? "#2D4A3E" : opt === "neg" ? "#4A2D2D" : "#3A3A2D") : "#1e1b17", color: mySplit === opt ? (opt === "aff" ? "#5AE89A" : opt === "neg" ? "#E8A0A0" : GOLD) : "#6b6358", border: mySplit === opt ? `2px solid ${opt === "aff" ? "#3A6B4E" : opt === "neg" ? "#6B3A3A" : GOLD + "66"}` : "1px solid #3a3530", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 14 : 15, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{opt === "both" ? "Both" : opt === "aff" ? "Aff" : "Neg"}</button>
                           ))}
                         </div>
-                        {totals && <button onClick={() => setExpandedSplitBill(expandedSplitBill === b.id ? null : b.id)} style={{ marginTop: 10, width: "100%", padding: "6px 0", background: "transparent", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", cursor: "pointer", textAlign: "center" }}>Chamber: <span style={{ color: "#5AE89A", fontWeight: 600 }}>{totals.aff} Aff</span> / <span style={{ color: "#E8A0A0", fontWeight: 600 }}>{totals.neg} Neg</span> <span style={{ fontSize: 9, color: "#6b6358" }}>{expandedSplitBill === b.id ? "▲" : "▼"}</span></button>}
-                        {expandedSplitBill === b.id && (() => { const names = getSplitNames(b.id); return (
-                          <div style={{ marginTop: 8, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                            <div>
-                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Affirmative ({names.aff.length})</div>
-                              {names.aff.length > 0 ? names.aff.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
-                            </div>
-                            <div>
-                              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Negative ({names.neg.length})</div>
-                              {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
-                            </div>
-                          </div>
-                        ); })()}
-                      </>
-                    )}
-                  </div>
+                      )}
+                      {!isCompetitor && !inDocket && !totals && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540", fontStyle: "italic", marginTop: 4 }}>No splits</div>}
+                    </div>
+                  </React.Fragment>
                 );
-              })}
-            </div>
+              });
+            })()}
           </div>
-        ) : (
+        </div>
+      ) : activeTab === "docket" ? (
+        docketAdopted ? (
           <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} poStudentId={statePoStudentId} />
+        ) : (
+          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+            {/* Recommended Docket */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Recommended Docket</div>
+              {(() => { const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId); return rec.length > 0 ? (
+                <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
+                  {rec.map((b, i) => (
+                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
+                    </div>
+                  ))}
+                </div>
+              ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Enter splits to generate recommendations</div>; })()}
+            </div>
+
+            {/* Submitted Dockets */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Submitted Dockets ({Object.keys(docketProposals).length})</div>
+              {Object.keys(docketProposals).length === 0 ? (
+                <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted yet. {isCompetitor ? "Be the first!" : ""}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {Object.entries(docketProposals).map(([safeId, proposal]) => {
+                    const isOwn = isCompetitor && safeId === fbSafe(competitorId);
+                    return (
+                      <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: isOwn ? `1px solid ${GOLD}44` : "1px solid #3a3530", padding: "14px 16px" }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600 }}>{proposal.name}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            {isOwn && <button onClick={() => { withdrawDocketProposal(roomCode, competitorId).catch(console.error); }} style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#C45A5A", background: "none", border: "1px solid #6B3A3A", borderRadius: 4, padding: "2px 8px", cursor: "pointer" }}>Withdraw</button>}
+                          </div>
+                        </div>
+                        {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = bill ? getSplitTotals(bill.id) : null; return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
+                            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
+                            {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                          </div>
+                        ); })}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Nominate a Docket (competitors only) */}
+            {isCompetitor && (
+              <div>
+                {!showNominate ? (
+                  <button onClick={() => { setShowNominate(true); setNominationBills([]); }} style={{ width: "100%", padding: "12px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Nominate a Docket</button>
+                ) : (
+                  <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "16px" }}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Nominate a Docket</div>
+                    <div style={{ display: isMobile ? "block" : "flex", gap: 16 }}>
+                      {/* Your Docket (top on mobile, right on desktop) */}
+                      <div style={{ flex: 1, marginBottom: isMobile ? 16 : 0, order: isMobile ? -1 : 1 }}>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginBottom: 6 }}>YOUR DOCKET ({nominationBills.length})</div>
+                        {nominationBills.length === 0 ? (
+                          <div style={{ padding: 20, border: "1px dashed #3a3530", borderRadius: 8, textAlign: "center", color: "#4a4540", fontStyle: "italic", fontSize: 11 }}>Tap bills to add them</div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            {nominationBills.map((billId, idx) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); return (
+                              <div key={billId} draggable onDragStart={() => setNominateDragIdx(idx)} onDragOver={e => { e.preventDefault(); if (nominateDragIdx === null || nominateDragIdx === idx) return; const ns = [...nominationBills]; const [d] = ns.splice(nominateDragIdx, 1); ns.splice(idx, 0, d); setNominationBills(ns); setNominateDragIdx(idx); }} onDragEnd={() => setNominateDragIdx(null)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#1e1b17", borderRadius: 6, border: nominateDragIdx === idx ? `1px solid ${GOLD}` : "1px solid #3a3530", cursor: "grab" }}>
+                                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, width: 16 }}>{idx + 1}.</span>
+                                <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name}</span>
+                                <button onClick={() => setNominationBills(p => p.filter(id => id !== billId))} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 14 }}>×</button>
+                              </div>
+                            ); })}
+                          </div>
+                        )}
+                      </div>
+                      {/* Available Bills */}
+                      <div style={{ flex: 1, order: isMobile ? 1 : -1 }}>
+                        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginBottom: 6 }}>AVAILABLE BILLS</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {legislationPack.map(b => { const added = nominationBills.includes(String(b.id)); const totals = getSplitTotals(b.id); return (
+                            <button key={b.id} disabled={added} onClick={() => !added && setNominationBills(p => [...p, String(b.id)])} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: added ? "#1e1b17" : "#2a2520", borderRadius: 6, border: "1px solid #3a3530", cursor: added ? "default" : "pointer", opacity: added ? 0.3 : 1, textAlign: "left", width: "100%", fontFamily: "inherit", color: "#E8E0D0" }}>
+                              <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{b.name}</span>
+                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                            </button>
+                          ); })}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                      <button onClick={() => {
+                        if (nominationBills.length === 0) return;
+                        const proposalKey = nominationBills.join(",");
+                        const existing = Object.values(docketProposals).some(p => (p.bills || []).join(",") === proposalKey);
+                        if (existing) { alert("This exact docket has already been submitted."); return; }
+                        submitDocketProposal(roomCode, competitorId, competitorName, nominationBills).catch(console.error);
+                        setShowNominate(false); setNominationBills([]);
+                      }} disabled={nominationBills.length === 0} style={{ flex: 1, padding: "10px 0", background: nominationBills.length > 0 ? GOLD : "#3a3530", color: nominationBills.length > 0 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: nominationBills.length > 0 ? "pointer" : "not-allowed" }}>Submit Docket</button>
+                      <button onClick={() => { setShowNominate(false); setNominationBills([]); }} style={{ padding: "10px 16px", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Waiting for PO message */}
+            {!isCompetitor && <div style={{ marginTop: 16, fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic", textAlign: "center" }}>Waiting for PO to adopt a docket...</div>}
+          </div>
         )
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={statePoStudentId} />
@@ -1717,6 +1954,8 @@ export default function App() {
       roomName: firebaseData.roomName || "",
       poPin: firebaseData.poPin || "",
       poStudentId: claimingStudentId || firebaseData.poStudentId || null,
+      legislationPack: firebaseData.legislationPack || firebaseData.docket || [],
+      docketAdopted: firebaseData.docketAdopted || false,
     };
     // Also save to session so ActiveRound can restore internal state
     try {
@@ -1745,7 +1984,8 @@ export default function App() {
   const handleSetupStart = (cfg) => {
     const initialState = {
       students: cfg.students, seatingSlots: cfg.seatingSlots, cols: cfg.cols, frontSide: cfg.frontSide,
-      docket: cfg.docket, roomCode: cfg.roomCode, poName: "", roomName: cfg.roomName || "", poPin: cfg.poPin,
+      docket: [], legislationPack: cfg.docket, docketAdopted: false,
+      roomCode: cfg.roomCode, poName: "", roomName: cfg.roomName || "", poPin: cfg.poPin,
       mode: "speech", seekers: [], speechCounter: 0, questionCounter: 0, history: [], activeSpeech: null,
       currentBillIdx: 0, speechStartTime: null, affCount: 0, negCount: 0, speechSequence: [],
       inQuestionPeriod: false, questionPrec: cfg.questionPrec, poStudentId: null, roundComplete: false,

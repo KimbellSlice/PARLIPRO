@@ -1,6 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { getDatabase, onDisconnect, onValue, ref, remove, set, update } from 'firebase/database';
+import { getDatabase, ref, set, update, onValue, remove, onDisconnect } from 'firebase/database';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // Replace with your real Firebase config
 const firebaseConfig = {
@@ -185,4 +185,29 @@ export function cleanupStaleRooms() {
       }
     });
   }, { onlyOnce: true });
+}
+
+// ═══ DOCKET PROPOSALS ═══
+
+export function submitDocketProposal(roomCode, studentId, studentName, bills) {
+  return set(ref(db, `rooms/${roomCode}/docketProposals/${fbSafe(studentId)}`), {
+    bills,
+    name: studentName,
+    submittedAt: Date.now(),
+    uid: _authUid
+  });
+}
+
+export function withdrawDocketProposal(roomCode, studentId) {
+  return set(ref(db, `rooms/${roomCode}/docketProposals/${fbSafe(studentId)}`), null);
+}
+
+export function adoptDocket(roomCode, docketBills, legislationPack) {
+  // Build the official docket from legislation pack using bill IDs
+  const officialDocket = docketBills.map(id => legislationPack.find(b => String(b.id) === String(id))).filter(Boolean);
+  return update(ref(db, `rooms/${roomCode}`), {
+    docket: officialDocket,
+    docketAdopted: true,
+    updatedAt: Date.now()
+  });
 }
