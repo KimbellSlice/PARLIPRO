@@ -1607,10 +1607,12 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
           {!isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
             <button onClick={() => copyToClipboard(roomCode)} title="Copy chamber code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            {onGoHome && <button onClick={() => { if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error); onGoHome(); }} style={{ marginLeft: 4, padding: "3px 8px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Exit</button>}
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
             <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
+            {onGoHome && <button onClick={() => { if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error); onGoHome(); }} style={{ marginLeft: 4, padding: "3px 6px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Exit</button>}
           </div>}
         </div>
       </header>
