@@ -1101,7 +1101,14 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         <div style={{ display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "row", flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "hidden" }}>
           <div style={{ flex: isMobile ? undefined : 1, overflow: isMobile ? "visible" : "auto", minWidth: 0, display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
             <div style={{ padding: isMobile ? "12px 12px" : "20px 24px" }}>
-              {!activeSpeech && (<div style={{ display: "flex", gap: 0, marginBottom: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530", maxWidth: 320 }}>
+              {!docketAdopted && (
+                <div style={{ background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", borderRadius: 10, border: "1px solid #6B3A3A", padding: isMobile ? "16px" : "20px 24px", marginBottom: 16, textAlign: "center" }}>
+                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#E8A0A0", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>Docket Required</div>
+                  <div style={{ fontSize: 13, color: "#E8E0D0", lineHeight: 1.5, marginBottom: 14 }}>Competitors are setting splits and submitting docket proposals. Adopt a docket from the <b>Docket</b> tab to begin the round.</div>
+                  <button onClick={() => setActiveTab("docket")} style={{ padding: "10px 28px", background: "#C45A5A", color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Go to Docket Tab →</button>
+                </div>
+              )}
+              {docketAdopted && !activeSpeech && (<div style={{ display: "flex", gap: 0, marginBottom: 12, borderRadius: 8, overflow: "hidden", border: "1px solid #3a3530", maxWidth: 320 }}>
                 {[{ key: "speech", label: `🎤 Speeches (${speechCounter})` }, { key: "question", label: `❓ Questions (${questionCounter})` }].map(t => (
                   <button key={t.key} onClick={() => {
                     if (t.key === mode) return;
@@ -1155,7 +1162,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                 )}
                 {!activeQuestioner && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic", marginTop: 6 }}>{blocksExhausted ? "All question blocks used" : "Select a questioner from the queue to begin"}</div>}
               </div>); })()}
-              {!activeSpeech && !pendingSpeaker && mode === "speech" && activeSeekers.length === 0 && (<div style={{ padding: "8px 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>{!docketAdopted ? "Adopt a docket from the Docket tab to begin" : nextInfo.needsChoice ? "Recognize a speaker to begin the first speech" : `Next: ${nextInfo.label}`}</div>)}
+              {docketAdopted && !activeSpeech && !pendingSpeaker && mode === "speech" && activeSeekers.length === 0 && (<div style={{ padding: "8px 0", fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>{nextInfo.needsChoice ? "Recognize a speaker to begin the first speech" : `Next: ${nextInfo.label}`}</div>)}
             </div>
             {/* Mobile queue toggle button */}
             {isMobile && (
