@@ -488,7 +488,7 @@ function SetupPhase({ onStart }) {
             {docket.map((b, idx) => (
               <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
-                <div style={{ flex: 1, background: "#2a2520", border: "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600 }}>{b.name}</div>
+                <div style={{ flex: 1, background: "#2a2520", border: "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {idx > 0 && <button onClick={() => moveBill(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}
                   {idx < docket.length - 1 && <button onClick={() => moveBill(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}
