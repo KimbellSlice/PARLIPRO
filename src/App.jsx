@@ -35,7 +35,7 @@ const BAD_WORDS = ["fuck","shit","ass","bitch","damn","dick","pussy","cock","cun
 const fbSafe = (id) => String(id).replace(/\./g, '_');
 const badWordRegex = new RegExp(`\\b(${BAD_WORDS.join("|")})\\b`, "i");
 const containsProfanity = (text) => badWordRegex.test(text);
-const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 50);
+const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 150);
 const BG = "linear-gradient(160deg, #1a1714 0%, #231f1b 50%, #1a1714 100%)";
 const GOLD = "#D4A843";
 const copyToClipboard = (text) => {
