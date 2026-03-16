@@ -401,7 +401,7 @@ function SetupPhase({ onStart }) {
         </div>
         <div style={{ marginTop: 8, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}>Share the chamber code with participants. The PO PIN is required to claim the Presiding Officer role.</div>
       </header>
-      <div style={{ maxWidth: 560, margin: "0 auto" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <div style={{ marginBottom: 20 }}>
           <label style={LS}>Chamber Name <span style={{ color: "#4a4540", textTransform: "none" }}>(optional)</span></label>
           <input value={roomName} onChange={e => setRoomName(e.target.value)} placeholder='e.g. "Prelims House 3"' aria-label="Chamber name" style={IS} />
@@ -626,7 +626,7 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
         </div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Docket — {billsDebated}/{docket.length} debated ({billsPassed} passed, {billsFailed} failed)</div>
         <div role="list" aria-label="Docket" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24 }}>
-          {docket.map((b, i) => (<div key={b.id || i} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{i + 1}.</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: b.status || i === currentBillIdx ? "#E8E0D0" : "#6b6358" }}>{b.name}</span>{b.status ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span> : i === currentBillIdx && !roundComplete ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>IN DEBATE</span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Pending</span>}</div>))}
+          {docket.map((b, i) => (<div key={b.id || i} role="listitem" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: i === currentBillIdx && !roundComplete ? `1px solid ${GOLD}` : "1px solid #3a3530" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 18, textAlign: "right" }}>{i + 1}.</span><span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0, color: b.status || i === currentBillIdx ? "#E8E0D0" : "#6b6358" }}>{b.name}</span>{b.status ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span> : i === currentBillIdx && !roundComplete ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD }}>IN DEBATE</span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Pending</span>}</div>))}
         </div>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Student Activity</div>
         <div role="list" aria-label="Student activity" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -692,7 +692,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
   };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
-      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>{editable ? "Edit Docket" : "Docket"}</div>
         {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." aria-label="Add bill name" style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -700,7 +700,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
             <div key={b.id || idx}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
-              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: totals ? "pointer" : "default" }} onClick={() => totals && setExpandedBill(isExpanded ? null : b.id)}>
+              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: totals ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => totals && setExpandedBill(isExpanded ? null : b.id)}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
                 {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600 }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span> <span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
               </div>
@@ -736,7 +736,7 @@ function RosterTab({ students, onRename, onAdd }) {
   const handleAdd = () => { const n = sanitizeInput(addInput.trim()); if (!n) return; if (containsProfanity(n)) { setAddInput(""); profanity.trigger(); return; } onAdd(n); setAddInput(""); };
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
-      <div style={{ maxWidth: 500, margin: "0 auto" }}>
+      <div style={{ maxWidth: 680, margin: "0 auto" }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>Edit Roster</div>
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
           <input value={addInput} onChange={e => setAddInput(e.target.value)} onKeyDown={e => e.key === "Enter" && handleAdd()} placeholder="Add new student..." aria-label="Add student name" style={{ flex: 1, ...IS }} />
