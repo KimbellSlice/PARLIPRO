@@ -1222,7 +1222,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                     {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1 }}>
                       <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
                       {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span> / <span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>}
                     </div>
                   </React.Fragment>
@@ -1248,8 +1248,8 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                   {rec.map((b, i) => (
                     <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
                       <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
                     </div>
                   ))}
                   <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
@@ -1270,8 +1270,8 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
                       {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                           <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
-                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
-                          {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
+                          {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                         </div>
                       ); })}
                       <button onClick={() => setAdoptConfirmPO(safeId)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt This Docket</button>
@@ -1734,8 +1734,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                   {rec.map((b, i) => (
                     <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
                       <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{b.name}</span>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
                     </div>
                   ))}
                 </div>
@@ -1760,8 +1760,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                         {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = bill ? getSplitTotals(bill.id) : null; return (
                           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
-                            <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
-                            {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                            <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
+                            {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                           </div>
                         ); })}
                       </div>
@@ -1789,8 +1789,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                           {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = bill ? getSplitTotals(bill.id) : null; return (
                             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
-                              <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name || "Unknown"}</span>
-                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                              <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
+                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                             </div>
                           ); })}
                         </div>
@@ -1821,7 +1821,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                             {nominationBills.map((billId, idx) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); return (
                               <div key={billId} draggable onDragStart={() => setNominateDragIdx(idx)} onDragOver={e => { e.preventDefault(); if (nominateDragIdx === null || nominateDragIdx === idx) return; const ns = [...nominationBills]; const [d] = ns.splice(nominateDragIdx, 1); ns.splice(idx, 0, d); setNominationBills(ns); setNominateDragIdx(idx); }} onDragEnd={() => setNominateDragIdx(null)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "#1e1b17", borderRadius: 6, border: nominateDragIdx === idx ? `1px solid ${GOLD}` : "1px solid #3a3530", cursor: "grab" }}>
                                 <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, width: 16 }}>{idx + 1}.</span>
-                                <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{bill?.name}</span>
+                                <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name}</span>
                                 <button onClick={() => setNominationBills(p => p.filter(id => id !== billId))} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 14 }}>×</button>
                               </div>
                             ); })}
@@ -1835,7 +1835,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                           {legislationPack.map(b => { const added = nominationBills.includes(String(b.id)); const totals = getSplitTotals(b.id); return (
                             <button key={b.id} disabled={added} onClick={() => !added && setNominationBills(p => [...p, String(b.id)])} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: added ? "#1e1b17" : "#2a2520", borderRadius: 6, border: "1px solid #3a3530", cursor: added ? "default" : "pointer", opacity: added ? 0.3 : 1, textAlign: "left", width: "100%", fontFamily: "inherit", color: "#E8E0D0" }}>
                               <span style={{ flex: 1, fontSize: 12, fontWeight: 600 }}>{b.name}</span>
-                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                              {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                             </button>
                           ); })}
                         </div>
