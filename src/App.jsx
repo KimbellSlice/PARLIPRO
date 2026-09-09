@@ -349,7 +349,8 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
         </div>
         <button onClick={() => setShowAbout(true)} style={{ marginTop: 32, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer", textDecoration: "underline", padding: 0 }}>What is ParliPro?</button>
         <div style={{ marginTop: 12, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>Built for NSDA / TFA Congressional Debate</div>
-        <div style={{ marginTop: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>© 2025 ParliPro. All rights reserved.</div>
+        <div style={{ marginTop: 6, fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>© 2026 ParliPro. All rights reserved.</div>
+        <div style={{ marginTop: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>For support, please contact ckimbell@gmail.com</div>
 
         {showAbout && (
           <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999, padding: 20 }} onClick={() => setShowAbout(false)}>
@@ -628,6 +629,7 @@ function SetupPhase({ onStart }) {
         <button disabled={!canStart} onClick={() => { if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map((s, i) => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           {canStart ? "Create Chamber →" : `Complete setup (${[!hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
         </button>
+        <div style={{ marginTop: 20, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>For support, please contact ckimbell@gmail.com</div>
       </div>
       {profanity.Toast}
     </div>
