@@ -399,6 +399,7 @@ function SetupPhase({ onStart }) {
   const [docket, setDocket] = useState([]);
   const [cols, setCols] = useState(4);
   const [rows, setRows] = useState(4);
+  const [gridManual, setGridManual] = useState(false);
   const [frontSide, setFrontSide] = useState("bottom");
   const [step, setStep] = useState("roster");
   const [seatingSlots, setSeatingSlots] = useState([]);
@@ -414,6 +415,14 @@ function SetupPhase({ onStart }) {
 
   useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step]);
   useEffect(() => { if (step === "seating") { const ex = seatingSlots.filter(Boolean); setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null)); } }, [rows, cols]);
+  useEffect(() => {
+    if (gridManual) return;
+    const n = students.length;
+    if (n === 0) return;
+    const c = Math.max(4, Math.ceil(Math.sqrt(n)));
+    const r = Math.ceil(n / c);
+    if (c !== cols || r !== rows) { setCols(c); setRows(r); }
+  }, [students.length, gridManual]);
 
   const addStudent = () => { const n = sanitizeInput(nameInput.trim()); if (!n || students.some(s => s.name.toLowerCase() === n.toLowerCase())) return; if (containsProfanity(n)) { setNameInput(""); profanity.trigger(); return; } setStudents(p => [...p, { id: Date.now() + Math.random(), name: n, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: p.length }]); setNameInput(""); setSeatingDirty(false); nameRef.current?.focus(); };
   const handlePasteList = (text) => {
@@ -545,8 +554,8 @@ function SetupPhase({ onStart }) {
         {step === "seating" && (<>
           {students.length < 2 ? <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least 2 students in the Roster tab first.</div> : (<>
             <div style={{ display: "flex", gap: 12, marginBottom: 20, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div><label style={LS}>Columns</label><select value={cols} onChange={e => setCols(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[3, 4, 5, 6, 7].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
-              <div><label style={LS}>Rows</label><select value={rows} onChange={e => setRows(Number(e.target.value))} style={{ ...IS, width: 70, padding: "8px 10px" }}>{[2, 3, 4, 5, 6, 7].map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+              <div><label style={LS}>Columns</label><select value={cols} onChange={e => { setGridManual(true); setCols(Number(e.target.value)); }} style={{ ...IS, width: 70, padding: "8px 10px" }}>{Array.from({ length: Math.max(7, cols) - 2 }, (_, i) => i + 3).map(n => <option key={n} value={n}>{n}</option>)}</select></div>
+              <div><label style={LS}>Rows</label><select value={rows} onChange={e => { setGridManual(true); setRows(Number(e.target.value)); }} style={{ ...IS, width: 70, padding: "8px 10px" }}>{Array.from({ length: Math.max(7, rows) - 1 }, (_, i) => i + 2).map(n => <option key={n} value={n}>{n}</option>)}</select></div>
               <div><label style={LS}>Front</label><div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>{[{ k: "top", a: "▲" }, { k: "bottom", a: "▼" }, { k: "left", a: "◀" }, { k: "right", a: "▶" }].map(o => (<button key={o.k} onClick={() => setFrontSide(o.k)} style={{ padding: "7px 10px", background: frontSide === o.k ? GOLD : "transparent", color: frontSide === o.k ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: frontSide === o.k ? 600 : 400, cursor: "pointer" }}>{o.a}</button>))}</div></div>
             </div>
             <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Drag to rearrange.</p>
