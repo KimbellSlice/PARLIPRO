@@ -414,7 +414,13 @@ function SetupPhase({ onStart }) {
   const isMobile = useIsMobile();
 
   useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step]);
-  useEffect(() => { if (step === "seating") { const ex = seatingSlots.filter(Boolean); setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null)); } }, [rows, cols]);
+  useEffect(() => {
+    if (step !== "seating") return;
+    const seatedIds = new Set(seatingSlots.filter(Boolean).map(s => s.id));
+    const backlog = students.filter(s => !seatedIds.has(s.id));
+    const ex = [...seatingSlots.filter(Boolean), ...backlog];
+    setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null));
+  }, [rows, cols]);
   useEffect(() => {
     if (gridManual) return;
     const n = students.length;
@@ -480,7 +486,9 @@ function SetupPhase({ onStart }) {
 
   const hasRoster = students.length >= 2;
   const hasDocket = docket.length >= 1;
-  const hasSeating = seatingSlots.filter(Boolean).length >= 2;
+  const seatedIds = new Set(seatingSlots.filter(Boolean).map(s => s.id));
+  const unseatedStudents = students.filter(s => !seatedIds.has(s.id));
+  const hasSeating = seatingSlots.filter(Boolean).length >= 2 && unseatedStudents.length === 0;
   const hasPO = true;
   const canStart = hasRoster && hasDocket && hasSeating;
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
@@ -558,6 +566,11 @@ function SetupPhase({ onStart }) {
               <div><label style={LS}>Rows</label><select value={rows} onChange={e => { setGridManual(true); setRows(Number(e.target.value)); }} style={{ ...IS, width: 70, padding: "8px 10px" }}>{Array.from({ length: Math.max(7, rows) - 1 }, (_, i) => i + 2).map(n => <option key={n} value={n}>{n}</option>)}</select></div>
               <div><label style={LS}>Front</label><div style={{ display: "flex", borderRadius: 6, overflow: "hidden", border: "1px solid #3a3530" }}>{[{ k: "top", a: "▲" }, { k: "bottom", a: "▼" }, { k: "left", a: "◀" }, { k: "right", a: "▶" }].map(o => (<button key={o.k} onClick={() => setFrontSide(o.k)} style={{ padding: "7px 10px", background: frontSide === o.k ? GOLD : "transparent", color: frontSide === o.k ? "#1a1a1a" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: frontSide === o.k ? 600 : 400, cursor: "pointer" }}>{o.a}</button>))}</div></div>
             </div>
+            {unseatedStudents.length > 0 && (
+              <div style={{ background: "#3a1f1f", border: "1px solid #7a3030", borderRadius: 6, padding: "10px 14px", marginBottom: 16, fontSize: 12, color: "#f0a0a0", fontFamily: "'DM Mono', monospace" }}>
+                ⚠ Grid too small for the full roster — {unseatedStudents.length} student{unseatedStudents.length > 1 ? "s" : ""} won't have a seat: {unseatedStudents.map(s => s.name).join(", ")}. Add more rows/columns to seat everyone.
+              </div>
+            )}
             <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Drag to rearrange.</p>
             {frontSide === "top" && <div style={{ textAlign: "center", padding: "6px 0 10px", color: GOLD, fontSize: 11, fontFamily: "'DM Mono', monospace", fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", borderBottom: "1px solid #3a3530", marginBottom: 12 }}>▲ Front / PO</div>}
             <div style={{ display: "flex", alignItems: "stretch" }}>
