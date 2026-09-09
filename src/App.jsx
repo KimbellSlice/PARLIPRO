@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket } from "./firebase.js";
+import { writeRoomState, createRoom, setRoomSecret, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket, fbSafe } from "./firebase.js";
 
 const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
 const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
-const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
+export const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
 
 // Compute recommended docket: top 5 bills by debate score (interest × balance)
-const computeRecommendedDocket = (legislationPack, splits, poStudentId) => {
+export const computeRecommendedDocket = (legislationPack, splits, poStudentId) => {
   if (!legislationPack || legislationPack.length === 0) return [];
   const scored = legislationPack.map(bill => {
     let aff = 0, neg = 0;
@@ -28,14 +28,29 @@ const computeRecommendedDocket = (legislationPack, splits, poStudentId) => {
 };
 const fmtTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 const ordinal = (n) => { const s = ["th", "st", "nd", "rd"], v = n % 100; return n + (s[(v - 20) % 10] || s[v] || s[0]); };
-const FONTS_LINK = "https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,600;6..72,700&family=DM+Mono:wght@400;500&display=swap";
 
 // Profanity filter
 const BAD_WORDS = ["fuck","shit","ass","bitch","damn","dick","pussy","cock","cunt","bastard","slut","whore","fag","nigger","nigga","retard","twat","wanker","piss","bollocks","arse","asshole","motherfucker","bullshit","goddamn","jackass","dumbass","douche","dildo","penis","vagina","tits","boobs","butthole","shithead","dickhead","fuckhead","asswipe","cocksucker","fucker","bitchass","hoe","thot","stfu","gtfo","milf"];
-const fbSafe = (id) => String(id).replace(/\./g, '_');
 const badWordRegex = new RegExp(`\\b(${BAD_WORDS.join("|")})\\b`, "i");
-const containsProfanity = (text) => badWordRegex.test(text);
-const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 150);
+export const containsProfanity = (text) => badWordRegex.test(text);
+export const sanitizeInput = (text) => text.replace(/[<>{}]/g, "").slice(0, 150);
+const escapeHtml = (str) => String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+// Verifies a PO PIN against the server-side check in api/verify-po-pin.js.
+// The PIN itself never lives in any client-readable Firebase data — see
+// firebase.js's setRoomSecret and database.rules.json.
+async function verifyPoPin(roomCode, pin) {
+  try {
+    const res = await fetch("/api/verify-po-pin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomCode, pin }),
+    });
+    return await res.json();
+  } catch (e) {
+    return { ok: false, error: "network_error" };
+  }
+}
 const BG = "linear-gradient(160deg, #1a1714 0%, #231f1b 50%, #1a1714 100%)";
 const GOLD = "#D4A843";
 const copyToClipboard = (text) => {
@@ -95,47 +110,97 @@ const Brand = ({ size = "large" }) => (
   </div>
 );
 
+// Derives elapsed time from Date.now() on every tick instead of incrementing
+// a counter, so backgrounded/throttled tabs (very plausible on a PO's phone)
+// self-correct instead of drifting behind real elapsed time.
 function SpeechTimer({ onTick, isRestore, savedElapsed, savedRunning, onStateChange }) {
-  const [elapsed, setElapsed] = useState(isRestore ? (savedElapsed || 0) : 0);
   const [running, setRunning] = useState(isRestore ? !!savedRunning : false);
-  const ref = useRef(null);
+  const [elapsed, setElapsed] = useState(isRestore ? (savedElapsed || 0) : 0);
+  const baseElapsedRef = useRef(isRestore ? (savedElapsed || 0) : 0);
+  const runStartRef = useRef(null);
   const isMobile = useIsMobile();
-  useEffect(() => { if (running) ref.current = setInterval(() => setElapsed(p => p + 1), 1000); else clearInterval(ref.current); return () => clearInterval(ref.current); }, [running]);
+
+  useEffect(() => {
+    if (!running) return;
+    runStartRef.current = Date.now();
+    const tick = () => setElapsed(baseElapsedRef.current + Math.floor((Date.now() - runStartRef.current) / 1000));
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [running]);
+
   useEffect(() => { if (onTick) onTick(elapsed); }, [elapsed]);
   useEffect(() => { if (onStateChange) onStateChange(elapsed, running); }, [elapsed, running]);
+
+  const toggleRunning = () => {
+    if (running) { baseElapsedRef.current = elapsed; setRunning(false); }
+    else setRunning(true);
+  };
+  const reset = () => { setRunning(false); baseElapsedRef.current = 0; setElapsed(0); };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12, flexWrap: "wrap" }}>
       <div style={{ fontSize: isMobile ? 28 : 38, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: elapsed > 180 ? "#C45A5A" : "#E8E0D0", letterSpacing: "0.05em", lineHeight: 1 }}>{fmtTime(elapsed)}</div>
       <div style={{ display: "flex", gap: 6 }}>
-        <button onClick={() => setRunning(r => !r)} style={{ padding: "6px 18px", background: running ? "#4A2D2D" : "#2D4A3E", color: running ? "#E8A0A0" : "#A0E8C0", border: running ? "1px solid #6B3A3A" : "1px solid #3A6B4E", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", minWidth: 72 }}>{running ? "Pause" : elapsed > 0 ? "Resume" : "Start"}</button>
-        <button onClick={() => { setRunning(false); setElapsed(0); }} style={{ padding: "6px 12px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Reset</button>
+        <button onClick={toggleRunning} style={{ padding: "6px 18px", background: running ? "#4A2D2D" : "#2D4A3E", color: running ? "#E8A0A0" : "#A0E8C0", border: running ? "1px solid #6B3A3A" : "1px solid #3A6B4E", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer", minWidth: 72 }}>{running ? "Pause" : elapsed > 0 ? "Resume" : "Start"}</button>
+        <button onClick={reset} style={{ padding: "6px 12px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Reset</button>
       </div>
     </div>
   );
 }
 
+const QUESTION_BLOCK_SECONDS = 30;
+
 function QuestionBlockTimer({ timerKey, onBlockEnd }) {
-  const [seconds, setSeconds] = useState(30);
   const [running, setRunning] = useState(true);
-  const intervalRef = useRef(null);
+  const [seconds, setSeconds] = useState(QUESTION_BLOCK_SECONDS);
+  const remainingAtStartRef = useRef(QUESTION_BLOCK_SECONDS);
+  const runStartRef = useRef(null);
+  const endedRef = useRef(false);
   const isMobile = useIsMobile();
-  useEffect(() => { setSeconds(30); setRunning(true); }, [timerKey]);
+
   useEffect(() => {
-    if (running && seconds > 0) intervalRef.current = setInterval(() => setSeconds(p => { if (p <= 1) { clearInterval(intervalRef.current); setRunning(false); if (onBlockEnd) onBlockEnd(); return 0; } return p - 1; }), 1000);
-    else clearInterval(intervalRef.current);
-    return () => clearInterval(intervalRef.current);
+    remainingAtStartRef.current = QUESTION_BLOCK_SECONDS;
+    endedRef.current = false;
+    setSeconds(QUESTION_BLOCK_SECONDS);
+    setRunning(true);
+  }, [timerKey]);
+
+  useEffect(() => {
+    if (!running) return;
+    runStartRef.current = Date.now();
+    const tick = () => {
+      const remaining = Math.max(0, remainingAtStartRef.current - Math.floor((Date.now() - runStartRef.current) / 1000));
+      setSeconds(remaining);
+      if (remaining <= 0 && !endedRef.current) {
+        endedRef.current = true;
+        setRunning(false);
+        if (onBlockEnd) onBlockEnd();
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running, timerKey]);
+
+  const toggleRunning = () => {
+    if (running) { remainingAtStartRef.current = seconds; setRunning(false); }
+    else if (seconds > 0) setRunning(true);
+  };
+  const reset = () => { setRunning(false); remainingAtStartRef.current = QUESTION_BLOCK_SECONDS; endedRef.current = false; setSeconds(QUESTION_BLOCK_SECONDS); };
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10 }}>
       <div style={{ fontSize: isMobile ? 22 : 28, fontFamily: "'DM Mono', monospace", fontWeight: 500, color: seconds <= 5 ? "#C45A5A" : seconds === 0 ? "#6b6358" : "#7BA3BF", letterSpacing: "0.05em", lineHeight: 1 }}>0:{String(seconds).padStart(2, "0")}</div>
-      <button onClick={() => setRunning(r => !r)} style={{ padding: "5px 14px", background: running ? "#4A2D2D" : "#2D3B4A", color: running ? "#E8A0A0" : "#A0C8E0", border: running ? "1px solid #6B3A3A" : "1px solid #3A4E6B", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", minWidth: 60 }}>{running ? "Pause" : seconds > 0 ? "Resume" : "Done"}</button>
-      <button onClick={() => { setRunning(false); setSeconds(30); }} style={{ padding: "5px 10px", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Reset</button>
+      <button onClick={toggleRunning} style={{ padding: "5px 14px", background: running ? "#4A2D2D" : "#2D3B4A", color: running ? "#E8A0A0" : "#A0C8E0", border: running ? "1px solid #6B3A3A" : "1px solid #3A4E6B", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", minWidth: 60 }}>{running ? "Pause" : seconds > 0 ? "Resume" : "Done"}</button>
+      <button onClick={reset} style={{ padding: "5px 10px", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Reset</button>
     </div>
   );
 }
 
 // ═══ LANDING PAGE ═══
-function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO }) {
+export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO }) {
   const [joinCode, setJoinCode] = useState("");
   const [joinError, setJoinError] = useState("");
   const [checking, setChecking] = useState(false);
@@ -196,7 +261,6 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
     getRoomOnce(code, (data) => {
       setChecking(false);
       if (!data) { setJoinError("Chamber not found."); return; }
-      if (!data.poPin) { setJoinError("This chamber has no PO PIN set."); return; }
       if (data.poHeartbeat && (Date.now() - (data.poHeartbeat.ts || data.poHeartbeat)) < STALE_MS) {
         setJoinError("A PO is currently active in this room. Close that session first, or wait a few seconds if it crashed.");
         return;
@@ -206,33 +270,33 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
     });
   };
 
-  const [landingPinAttempts, setLandingPinAttempts] = useState(0);
   const [landingPinLockUntil, setLandingPinLockUntil] = useState(0);
-  const handlePinSubmit = () => {
+  const [verifyingPin, setVerifyingPin] = useState(false);
+  const handlePinSubmit = async () => {
     if (Date.now() < landingPinLockUntil) { setJoinError(`Too many attempts. Wait ${Math.ceil((landingPinLockUntil - Date.now()) / 1000)}s.`); return; }
-    getRoomOnce(pendingCode, (data) => {
-      if (data && data.poPin === pin) {
-        setLandingPinAttempts(0);
-        onRejoinPO(pendingCode, data);
-      } else {
-        const newAttempts = landingPinAttempts + 1;
-        setLandingPinAttempts(newAttempts);
-        if (newAttempts >= 5) {
-          setLandingPinLockUntil(Date.now() + 30000);
-          setJoinError("Too many attempts. Locked for 30s.");
-        } else {
-          setJoinError(`Incorrect PIN. ${5 - newAttempts} attempts left.`);
-        }
-        setShowPinEntry(false);
-        setPin("");
-      }
-    });
+    setVerifyingPin(true);
+    const result = await verifyPoPin(pendingCode, pin);
+    setVerifyingPin(false);
+    if (result.ok) {
+      getRoomOnce(pendingCode, (data) => {
+        if (data) onRejoinPO(pendingCode, { ...data, poPin: result.poPin });
+        else setJoinError("Chamber not found.");
+      });
+      return;
+    }
+    if (result.error === "locked") {
+      setLandingPinLockUntil(Date.now() + result.lockedForSeconds * 1000);
+      setJoinError(`Too many attempts. Locked for ${result.lockedForSeconds}s.`);
+    } else {
+      const attemptsLeft = result.attemptsLeft ?? 0;
+      setJoinError(attemptsLeft > 0 ? `Incorrect PIN. ${attemptsLeft} attempts left.` : "Too many attempts. Locked for 30s.");
+    }
+    setShowPinEntry(false);
+    setPin("");
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <div style={{ maxWidth: 440, width: "100%", textAlign: "center" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>      <div style={{ maxWidth: 440, width: "100%", textAlign: "center" }}>
         <Brand size="large" />
         <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 32 }}>
           <button onClick={onCreateRoom} style={{ width: "100%", padding: "18px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 10, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: "pointer", letterSpacing: "0.08em", textTransform: "uppercase" }}>Create Chamber</button>
@@ -248,7 +312,7 @@ function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejoinPO })
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Enter PO PIN to rejoin</div>
               <div style={{ display: "flex", gap: 8 }}>
                 <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handlePinSubmit()} placeholder="4-digit PIN" maxLength={4} style={{ ...IS, flex: 1, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.3em", padding: "12px" }} />
-                <button onClick={handlePinSubmit} disabled={pin.length !== 4} style={{ padding: "12px 20px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Rejoin</button>
+                <button onClick={handlePinSubmit} disabled={pin.length !== 4 || verifyingPin} style={{ padding: "12px 20px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: pin.length === 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Rejoin"}</button>
               </div>
               <button onClick={() => { setShowPinEntry(false); setPin(""); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button>
             </div>
@@ -385,9 +449,7 @@ function SetupPhase({ onStart }) {
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px" }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <header role="banner" style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", padding: isMobile ? "0 12px 40px" : "0 16px 40px" }}>      <header role="banner" style={{ textAlign: "center", padding: isMobile ? "24px 0 16px" : "40px 0 20px" }}>
         <Brand size="large" />
         <div style={{ marginTop: 16, display: "inline-flex", alignItems: "center", gap: isMobile ? 12 : 16, background: "#2a2520", borderRadius: 8, padding: isMobile ? "8px 14px" : "8px 20px", border: "1px solid #3a3530", flexWrap: "wrap", justifyContent: "center" }}>
           <div>
@@ -581,7 +643,7 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
         <img src="/PARLIPRO.png" alt="ParliPro" />
         <h1>Session Recap</h1>
       </div>
-      <div class="meta">${roomName ? roomName + " · " : ""}${poName ? "PO: " + poName + " · " : ""}${now}</div>
+      <div class="meta">${roomName ? escapeHtml(roomName) + " · " : ""}${poName ? "PO: " + escapeHtml(poName) + " · " : ""}${escapeHtml(now)}</div>
       <div class="stats">
         <div class="stat"><div class="stat-val">${totalSpeeches}</div><div class="stat-label">Speeches</div></div>
         <div class="stat"><div class="stat-val">${totalQuestions}</div><div class="stat-label">Questions</div></div>
@@ -589,19 +651,19 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
       </div>
       <h2>Docket — ${billsDebated}/${docket.length} Debated</h2>
       <table><thead><tr><th>#</th><th>Bill</th><th>Result</th></tr></thead><tbody>
-        ${docket.map((b, i) => `<tr><td>${i + 1}</td><td>${b.name}</td><td class="${b.status || ''}">${b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}</td></tr>`).join("")}
+        ${docket.map((b, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(b.name)}</td><td class="${b.status || ''}">${b.status ? b.status.charAt(0).toUpperCase() + b.status.slice(1) : "—"}</td></tr>`).join("")}
       </tbody></table>
       <h2>Student Activity</h2>
       <table><thead><tr><th>#</th><th>Name</th><th>Speeches</th><th>Questions</th></tr></thead><tbody>
-        ${studentStats.map((s, i) => { const isPO = isPOStudent(s.id); return `<tr style="${isPO ? 'opacity:0.6' : ''}"><td>${isPO ? "—" : i + 1}</td><td>${s.name}${isPO ? ' <span style="color:#D4A843;font-size:10px;font-weight:600">PO</span>' : ""}</td><td>${isPO ? "—" : (s.speeches||0)}</td><td>${isPO ? "—" : (s.questions||0)}</td></tr>`; }).join("")}
+        ${studentStats.map((s, i) => { const isPO = isPOStudent(s.id); return `<tr style="${isPO ? 'opacity:0.6' : ''}"><td>${isPO ? "—" : i + 1}</td><td>${escapeHtml(s.name)}${isPO ? ' <span style="color:#D4A843;font-size:10px;font-weight:600">PO</span>' : ""}</td><td>${isPO ? "—" : (s.speeches||0)}</td><td>${isPO ? "—" : (s.questions||0)}</td></tr>`; }).join("")}
       </tbody></table>
       <h2>Speech Log</h2>
       <table><thead><tr><th>#</th><th>Speaker</th><th>Side</th><th>Bill</th><th>Duration</th><th>Time</th></tr></thead><tbody>
-        ${speechHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${h.name}</td><td>${h.side || "—"}</td><td>${h.bill || "—"}</td><td>${h.duration != null ? fmtTime(h.duration) : "—"}</td><td>${new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("")}
+        ${speechHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(h.name)}</td><td>${escapeHtml(h.side) || "—"}</td><td>${escapeHtml(h.bill) || "—"}</td><td>${h.duration != null ? fmtTime(h.duration) : "—"}</td><td>${escapeHtml(new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</td></tr>`).join("")}
       </tbody></table>
       ${questionHistory.length > 0 ? `<h2>Question Log</h2>
       <table><thead><tr><th>#</th><th>Questioner</th><th>Bill</th><th>Time</th></tr></thead><tbody>
-        ${questionHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${h.name}</td><td>${h.bill || "—"}</td><td>${new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td></tr>`).join("")}
+        ${questionHistory.reverse().map((h, i) => `<tr><td>${i + 1}</td><td>${escapeHtml(h.name)}</td><td>${escapeHtml(h.bill) || "—"}</td><td>${escapeHtml(new Date(h.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }))}</td></tr>`).join("")}
       </tbody></table>` : ""}
       <div class="footer">Generated by ParliPro · ${now}</div>
     </body></html>`;
@@ -725,6 +787,114 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
   );
 }
 
+function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competitorSplits, poStudentId }) {
+  return (
+    <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Chamber Splits</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {(() => {
+          const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
+          const billsToShow = docketAdopted
+            ? [...docket, ...legislationPack.filter(b => !docketIds.includes(String(b.id)))]
+            : legislationPack;
+          const dividerIdx = docketAdopted ? docket.length : -1;
+          return billsToShow.map((b, i) => {
+            const inDocket = !docketAdopted || i < dividerIdx;
+            const totals = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })();
+            return (
+              <React.Fragment key={b.id}>
+                {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+                  {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span> / <span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>}
+                </div>
+              </React.Fragment>
+            );
+          });
+        })()}
+      </div>
+    </div>
+  );
+}
+
+function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, setDocket, setDocketAdopted }) {
+  return (
+    <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
+      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
+
+      {/* Recommended Docket */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket</div>
+        {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId); return rec.length > 0 ? (
+          <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
+            {rec.map((b, i) => (
+              <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
+              </div>
+            ))}
+            <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
+          </div>
+        ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Waiting for competitor splits...</div>; })()}
+      </div>
+
+      {/* Submitted Proposals */}
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Submitted Dockets ({Object.keys(docketProposals).length})</div>
+        {Object.keys(docketProposals).length === 0 ? (
+          <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted by competitors yet.</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {(() => { const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0)); const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; }; return allProposals.map(([safeId, proposal]) => (
+              <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
+                {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                    <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
+                    {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                  </div>
+                ); })}
+                <button onClick={() => setAdoptConfirmPO(safeId)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt This Docket</button>
+              </div>
+            )); })()}
+          </div>
+        )}
+      </div>
+
+      {/* Adopt confirmation modal */}
+      {adoptConfirmPO && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 380, textAlign: "center" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Adopt Docket?</div>
+            <p style={{ fontSize: 14, color: "#E8E0D0", marginBottom: 20 }}>This will set the official docket for the round. You can still edit it later.</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => setAdoptConfirmPO(null)} style={{ flex: 1, padding: "10px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+              <button onClick={() => {
+                let billIds;
+                if (adoptConfirmPO === "recommended") {
+                  billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId).map(b => String(b.id));
+                } else {
+                  const proposal = docketProposals[adoptConfirmPO];
+                  billIds = proposal?.bills || [];
+                }
+                adoptDocket(roomCode, billIds, legislationPack).then(() => {
+                  const newDocket = billIds.map(id => legislationPack.find(b => String(b.id) === String(id))).filter(Boolean).map(b => ({ ...b, status: null }));
+                  setDocket(newDocket);
+                  setDocketAdopted(true);
+                }).catch(console.error);
+                setAdoptConfirmPO(null);
+              }} style={{ flex: 1, padding: "10px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Adopt</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ═══ ROSTER TAB (edit students during round) ═══
 function RosterTab({ students, onRename, onAdd }) {
   const [editId, setEditId] = useState(null);
@@ -761,8 +931,13 @@ function RosterTab({ students, onRename, onAdd }) {
   );
 }
 
-// ═══ ACTIVE ROUND (PO) ═══
-function ActiveRound({ config, onCloseRoom, onReleasePO }) {
+// ═══ ACTIVE ROUND STATE/LOGIC HOOK ═══
+// Extracted from ActiveRound so the round's state machine (speaker/question
+// queues, undo stack, Firebase sync, session persistence) can be reasoned
+// about and tested independently of the render body below. Returns a flat
+// object using the same names the JSX previously used directly — this was a
+// pure extraction, not a rewrite, so ActiveRound's render body is unchanged.
+export function useActiveRound(config, onCloseRoom) {
   const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, poPin, questionPrec: configQuestionPrec, poStudentId } = config;
 
   // Try restoring from session (for rejoin / refresh)
@@ -1000,7 +1175,9 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   };
 
   const addStudentLive = (name) => {
-    const qOrder = questionPrec === "random" ? Math.floor(Math.random() * 1000) : students.length;
+    // Placed after every existing questionOrder rather than a random pick,
+    // so a late addition can't collide with an existing student's order.
+    const qOrder = questionPrec === "random" ? Math.max(-1, ...students.map(s => s.questionOrder ?? -1)) + 1 : students.length;
     const newStudent = { id: Date.now() + Math.random(), name, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: students.length, questionOrder: qOrder };
     setStudents(p => [...p, newStudent]);
     // Add to first empty seat
@@ -1021,10 +1198,58 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   const nextInfo = getNextSpeechInfo();
   const displayName = roomName || `Chamber ${roomCode}`;
 
+  return {
+    students, setStudents, seatingSlots, setSeatingSlots, mode, setMode, seekers, setSeekers,
+    speechCounter, setSpeechCounter, questionCounter, setQuestionCounter, history, setHistory,
+    activeTab, setActiveTab, activeSpeech, setActiveSpeech, pendingSpeaker, setPendingSpeaker,
+    affCount, setAffCount, negCount, setNegCount, speechSequence, setSpeechSequence,
+    timerKey, setTimerKey, isRestoredSpeech, setIsRestoredSpeech, timerStateRef,
+    restoredTimerElapsed, restoredTimerRunning, docket, setDocket, currentBillIdx, setCurrentBillIdx,
+    showPQConfirm, setShowPQConfirm, currentSpeechElapsed, docketBillInput, setDocketBillInput,
+    docketInputRef, speechStartTime, setSpeechStartTime, showCloseConfirm, setShowCloseConfirm,
+    showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents, setCompetitorIntents,
+    competitorSplits, setCompetitorSplits, docketProposals, setDocketProposals,
+    docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
+    competitorClaims, setCompetitorClaims, spectatorPresence, setSpectatorPresence, isMobile,
+    showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue, showNextSpeechConfirm, setShowNextSpeechConfirm,
+    inQuestionPeriod, setInQuestionPeriod, lastSpeakerId, setLastSpeakerId, questionBlockNum, setQuestionBlockNum,
+    questionBlockTimerKey, setQuestionBlockTimerKey, activeQuestioner, setActiveQuestioner,
+    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo,
+    currentBill, roundComplete, getStudent, pushUndo, toggleSeeker, activeSeekers, sortedSeekers,
+    getNextSpeechInfo, breakCycle, recognizeSpeaker, startSpeechFromChoice, endSpeech,
+    recognizeQuestioner, removeSeeker, switchToSpeechMode, resolveBill, addBillLive,
+    removeBillLive, moveBillLive, renameStudent, addStudentLive, handleCloseRoom, nextInfo, displayName,
+  };
+}
+
+// ═══ ACTIVE ROUND (PO) ═══
+function ActiveRound({ config, onCloseRoom, onReleasePO }) {
+  const { cols, frontSide, roomCode, poName, roomName, poPin, poStudentId } = config;
+  const {
+    students, seatingSlots, mode, setMode, seekers, setSeekers,
+    speechCounter, questionCounter, history,
+    activeTab, setActiveTab, activeSpeech, pendingSpeaker, setPendingSpeaker,
+    speechSequence,
+    timerKey, isRestoredSpeech, timerStateRef,
+    restoredTimerElapsed, restoredTimerRunning, docket, setDocket, currentBillIdx,
+    showPQConfirm, setShowPQConfirm, currentSpeechElapsed, docketBillInput, setDocketBillInput,
+    docketInputRef, showCloseConfirm, setShowCloseConfirm,
+    showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents,
+    competitorSplits, docketProposals,
+    docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
+    competitorClaims, spectatorPresence, isMobile,
+    showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue,
+    inQuestionPeriod, lastSpeakerId, questionBlockNum,
+    questionBlockTimerKey, activeQuestioner,
+    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo,
+    currentBill, roundComplete, getStudent, pushUndo, toggleSeeker, activeSeekers, sortedSeekers,
+    breakCycle, recognizeSpeaker, startSpeechFromChoice, endSpeech,
+    recognizeQuestioner, removeSeeker, switchToSpeechMode, resolveBill, addBillLive,
+    removeBillLive, moveBillLive, renameStudent, addStudentLive, handleCloseRoom, nextInfo, displayName,
+  } = useActiveRound(config, onCloseRoom);
+
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0 }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -1205,110 +1430,14 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
           </div>
         </div>
       ) : activeTab === "splits" ? (
-        <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Chamber Splits</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(() => {
-              const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
-              const billsToShow = docketAdopted
-                ? [...docket, ...legislationPack.filter(b => !docketIds.includes(String(b.id)))]
-                : legislationPack;
-              const dividerIdx = docketAdopted ? docket.length : -1;
-              return billsToShow.map((b, i) => {
-                const inDocket = !docketAdopted || i < dividerIdx;
-                const totals = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })();
-                return (
-                  <React.Fragment key={b.id}>
-                    {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1 }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
-                      {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span> / <span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>}
-                    </div>
-                  </React.Fragment>
-                );
-              });
-            })()}
-          </div>
-        </div>
+        <SplitsTab isMobile={isMobile} docketAdopted={docketAdopted} docket={docket} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} />
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={poStudentId} />
       ) : activeTab === "docket" ? (
         docketAdopted ? (
           <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
         ) : (
-          <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
-
-            {/* Recommended Docket */}
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket</div>
-              {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId); return rec.length > 0 ? (
-                <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
-                  {rec.map((b, i) => (
-                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, width: 20, textAlign: "right" }}>{i + 1}.</span>
-                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
-                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{b.aff}A</span>/<span style={{ color: "#C45A5A" }}>{b.neg}N</span></span>
-                    </div>
-                  ))}
-                  <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
-                </div>
-              ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Waiting for competitor splits...</div>; })()}
-            </div>
-
-            {/* Submitted Proposals */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Submitted Dockets ({Object.keys(docketProposals).length})</div>
-              {Object.keys(docketProposals).length === 0 ? (
-                <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No dockets submitted by competitors yet.</div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {(() => { const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0)); const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; }; return allProposals.map(([safeId, proposal]) => (
-                    <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
-                      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
-                      {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
-                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
-                          <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
-                          <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
-                          {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", flexShrink: 0, whiteSpace: "nowrap" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
-                        </div>
-                      ); })}
-                      <button onClick={() => setAdoptConfirmPO(safeId)} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt This Docket</button>
-                    </div>
-                  )); })()}
-                </div>
-              )}
-            </div>
-
-            {/* Adopt confirmation modal */}
-            {adoptConfirmPO && (
-              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
-                <div style={{ background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 380, textAlign: "center" }}>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Adopt Docket?</div>
-                  <p style={{ fontSize: 14, color: "#E8E0D0", marginBottom: 20 }}>This will set the official docket for the round. You can still edit it later.</p>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setAdoptConfirmPO(null)} style={{ flex: 1, padding: "10px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
-                    <button onClick={() => {
-                      let billIds;
-                      if (adoptConfirmPO === "recommended") {
-                        billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId).map(b => String(b.id));
-                      } else {
-                        const proposal = docketProposals[adoptConfirmPO];
-                        billIds = proposal?.bills || [];
-                      }
-                      adoptDocket(roomCode, billIds, legislationPack).then(() => {
-                        const newDocket = billIds.map(id => legislationPack.find(b => String(b.id) === String(id))).filter(Boolean).map(b => ({ ...b, status: null }));
-                        setDocket(newDocket);
-                        setDocketAdopted(true);
-                      }).catch(console.error);
-                      setAdoptConfirmPO(null);
-                    }} style={{ flex: 1, padding: "10px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Adopt</button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <DocketAdoptionPanel isMobile={isMobile} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} docketProposals={docketProposals} adoptConfirmPO={adoptConfirmPO} setAdoptConfirmPO={setAdoptConfirmPO} roomCode={roomCode} setDocket={setDocket} setDocketAdopted={setDocketAdopted} />
         )
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
@@ -1383,15 +1512,24 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     return unsub;
   }, [roomCode]);
 
-  // Competitor: claim name heartbeat
+  // Competitor: claim name (atomic — rejects if someone else claimed it first),
+  // then keep it alive with a plain heartbeat renewal every 30s.
+  const [claimFailed, setClaimFailed] = useState(false);
   useEffect(() => {
     if (!isCompetitor || disconnected) return;
-    claimCompetitorName(roomCode, competitorId).catch(console.error);
-    const iv = setInterval(() => {
-      claimCompetitorName(roomCode, competitorId).catch(console.error);
-    }, 30000);
+    let cancelled = false;
+    let iv = null;
+    claimCompetitorNameAtomic(roomCode, competitorId).then(() => {
+      if (cancelled) return;
+      iv = setInterval(() => {
+        claimCompetitorName(roomCode, competitorId).catch(console.error);
+      }, 30000);
+    }).catch(() => {
+      if (!cancelled) setClaimFailed(true);
+    });
     return () => {
-      clearInterval(iv);
+      cancelled = true;
+      if (iv) clearInterval(iv);
       if (!disconnected) releaseCompetitorName(roomCode, competitorId).catch(console.error);
     };
   }, [roomCode, competitorId, isCompetitor, disconnected]);
@@ -1432,39 +1570,51 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   };
 
   // PO claim
-  const [pinAttempts, setPinAttempts] = useState(0);
   const [pinLockUntil, setPinLockUntil] = useState(0);
-  const handleClaimPO = () => {
+  const [verifyingPin, setVerifyingPin] = useState(false);
+  const handleClaimPO = async () => {
     if (!state) return;
     if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
-    if (!state.poPin) { setPinError("No PO PIN set for this room."); return; }
     if (state.poHeartbeat && (Date.now() - (state.poHeartbeat.ts || state.poHeartbeat)) < STALE_MS) {
       setPinError("A PO is currently active in this room.");
       return;
     }
-    if (state.poPin === pin) {
-      setPinAttempts(0);
+    setVerifyingPin(true);
+    const result = await verifyPoPin(roomCode, pin);
+    setVerifyingPin(false);
+    if (result.ok) {
       if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error);
-      onClaimPO(roomCode, state, competitorId);
+      onClaimPO(roomCode, { ...state, poPin: result.poPin }, competitorId);
+    } else if (result.error === "locked") {
+      setPinLockUntil(Date.now() + result.lockedForSeconds * 1000);
+      setPinError(`Too many attempts. Locked for ${result.lockedForSeconds}s.`);
+      setPin("");
     } else {
-      const newAttempts = pinAttempts + 1;
-      setPinAttempts(newAttempts);
-      if (newAttempts >= 5) {
-        setPinLockUntil(Date.now() + 30000);
-        setPinError("Too many attempts. Locked for 30s.");
-      } else {
-        setPinError(`Incorrect PIN. ${5 - newAttempts} attempts left.`);
-      }
+      const attemptsLeft = result.attemptsLeft ?? 0;
+      setPinError(attemptsLeft > 0 ? `Incorrect PIN. ${attemptsLeft} attempts left.` : "Too many attempts. Locked for 30s.");
       setPin("");
     }
   };
 
 
+  if (claimFailed) {
+    return (
+      <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center" }}>        <div style={{ textAlign: "center" }}>
+          <Brand size="large" />
+          <div style={{ marginTop: 20, fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#E8A0A0" }}>
+            This name was just claimed by someone else. Please choose a different name.
+          </div>
+          {onGoHome && (
+            <button onClick={onGoHome} style={{ marginTop: 20, padding: "10px 24px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer", letterSpacing: "0.08em" }}>Choose a Different Name</button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (!state || disconnected) {
     return (
-      <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <link href={FONTS_LINK} rel="stylesheet" />
-        <div style={{ textAlign: "center" }}>
+      <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: "flex", alignItems: "center", justifyContent: "center" }}>        <div style={{ textAlign: "center" }}>
           <Brand size="large" />
           <div style={{ marginTop: 20, fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#9B917F" }}>
             {disconnected ? "Chamber not found or has ended." : "Connecting to chamber..."}
@@ -1526,9 +1676,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
-      <link href={FONTS_LINK} rel="stylesheet" />
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0, flex: isMobile ? 1 : undefined }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -1564,7 +1712,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ width: 56, background: "#1e1b17", color: "#E8E0D0", border: pinError ? "1px solid #C45A5A" : "1px solid #3a3530", borderRadius: 4, padding: "3px 6px", fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "center", letterSpacing: "0.15em" }} />
-                  <button onClick={handleClaimPO} disabled={pin.length !== 4} style={{ padding: "3px 8px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length === 4 ? "pointer" : "not-allowed" }}>Go</button>
+                  <button onClick={handleClaimPO} disabled={pin.length !== 4 || verifyingPin} style={{ padding: "3px 8px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length === 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Go"}</button>
                   <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer" }}>×</button>
                 </div>
               )}
@@ -2033,12 +2181,13 @@ export default function App() {
     const initialState = {
       students: cfg.students, seatingSlots: cfg.seatingSlots, cols: cfg.cols, frontSide: cfg.frontSide,
       docket: [], legislationPack: cfg.docket, docketAdopted: false,
-      roomCode: cfg.roomCode, poName: "", roomName: cfg.roomName || "", poPin: cfg.poPin,
+      roomCode: cfg.roomCode, poName: "", roomName: cfg.roomName || "",
       mode: "speech", seekers: [], speechCounter: 0, questionCounter: 0, history: [], activeSpeech: null,
       currentBillIdx: 0, speechStartTime: null, affCount: 0, negCount: 0, speechSequence: [],
       inQuestionPeriod: false, questionPrec: cfg.questionPrec, poStudentId: null, roundComplete: false,
     };
-    createRoom(cfg.roomCode, initialState).then(() => {
+    // poPin is never written to the public room node — see setRoomSecret/database.rules.json
+    Promise.all([createRoom(cfg.roomCode, initialState), setRoomSecret(cfg.roomCode, cfg.poPin)]).then(() => {
       setCreatedRoomPin(cfg.poPin);
       setSpectatorCode(cfg.roomCode);
       setView("spectator");

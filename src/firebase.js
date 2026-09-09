@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, update, onValue, remove, onDisconnect } from 'firebase/database';
+import { getDatabase, ref, set, update, onValue, remove, onDisconnect, runTransaction } from 'firebase/database';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // Replace with your real Firebase config
@@ -55,6 +55,19 @@ export function createRoom(roomCode, state) {
   });
 }
 
+// ═══ ROOM SECRETS (never readable by clients — see database.rules.json) ═══
+// The PO PIN lives here instead of on the public rooms/{code} node, since
+// Realtime Database read rules cascade downward: once a node is readable,
+// its children can't be selectively hidden. Verification happens server-side
+// via api/verify-po-pin.js using the Admin SDK, which bypasses these rules.
+
+export function setRoomSecret(roomCode, poPin) {
+  return set(ref(db, `roomSecrets/${roomCode}`), {
+    poPin,
+    createdAt: Date.now()
+  });
+}
+
 export function subscribeToRoom(roomCode, callback) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   const unsub = onValue(roomRef, (snapshot) => {
@@ -78,7 +91,10 @@ export function getRoomOnce(roomCode, callback) {
 }
 
 export function deleteRoom(roomCode) {
-  return remove(ref(db, `rooms/${roomCode}`));
+  return Promise.all([
+    remove(ref(db, `rooms/${roomCode}`)),
+    remove(ref(db, `roomSecrets/${roomCode}`))
+  ]);
 }
 
 // ═══ INCREMENTAL STATE UPDATES ═══
@@ -112,7 +128,7 @@ export function clearPOHeartbeat(roomCode) {
 
 // ═══ COMPETITOR PRESENCE (with onDisconnect) ═══
 
-function fbSafe(id) { return String(id).replace(/\./g, '_'); }
+export function fbSafe(id) { return String(id).replace(/\./g, '_'); }
 
 export function claimCompetitorName(roomCode, studentId) {
   const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
@@ -154,19 +170,29 @@ export function updateCompetitorSplit(roomCode, studentId, billId, side) {
 }
 
 // ═══ ATOMIC CLAIM ═══
+// Uses a Realtime Database transaction — the actual primitive RTDB provides
+// for check-and-set — instead of a separate read then write, which has a
+// race window two clients can both slip through when claiming the same name
+// at the same moment.
 
-export function claimCompetitorNameAtomic(roomCode, studentId) {
+export async function claimCompetitorNameAtomic(roomCode, studentId) {
+  // Wait for anonymous sign-in to actually complete before reading _authUid —
+  // this can fire on mount, before onAuthStateChanged's real-user callback
+  // has run, which would otherwise write uid: null and fail the security
+  // rule's uid-match validation (indistinguishable from "name already taken").
+  const uid = await getAuthUid();
   const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
-  return new Promise((resolve, reject) => {
-    onValue(claimRef, (snapshot) => {
-      const existing = snapshot.val();
-      if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS && existing.uid !== _authUid) {
-        reject(new Error("Name already claimed"));
-      } else {
-        onDisconnect(claimRef).remove();
-        update(claimRef, { claimedAt: Date.now(), uid: _authUid }).then(resolve).catch(reject);
-      }
-    }, { onlyOnce: true });
+  return runTransaction(claimRef, (existing) => {
+    if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS && existing.uid !== uid) {
+      return; // abort — leaves the existing claim untouched
+    }
+    return { claimedAt: Date.now(), uid };
+  }).then((result) => {
+    if (!result.committed) {
+      throw new Error("Name already claimed");
+    }
+    onDisconnect(claimRef).remove();
+    return result;
   });
 }
 

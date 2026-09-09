@@ -1,0 +1,74 @@
+{
+  "rules": {
+    "rooms": {
+      "$roomCode": {
+        // Anyone authenticated can read room data
+        ".read": "auth != null",
+
+        // Room-level writes (PO state sync, room creation) — require auth
+        ".write": "auth != null",
+
+        // Competitor claims: only the claim owner (by uid) can write their key
+        "competitorClaims": {
+          "$studentKey": {
+            ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || data.child('claimedAt').val() < (now - 45000))",
+            ".validate": "newData.hasChild('claimedAt') && newData.hasChild('uid') && newData.child('uid').val() === auth.uid"
+          }
+        },
+
+        // Splits: only the competitor who claimed the name can write their splits
+        "splits": {
+          "$studentKey": {
+            ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid"
+          }
+        },
+
+        // Competitor intents: only the competitor who claimed the name can write
+        "competitorIntents": {
+          "$studentKey": {
+            ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid"
+          }
+        },
+
+        // Spectator presence: only the owner (matched by auth uid) can write
+        "spectatorPresence": {
+          "$specId": {
+            ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
+            ".validate": "newData.hasChild('uid') && newData.child('uid').val() === auth.uid"
+          }
+        },
+
+        // PO heartbeat: anyone authenticated can write (PIN check happens client-side)
+        "poHeartbeat": {
+          ".write": "auth != null"
+        }
+      }
+    },
+
+    // PO PINs live here instead of on rooms/{code} because Realtime Database
+    // read rules cascade downward — rooms/$roomCode above grants ".read" to
+    // any authenticated client, and a deeper ".read": false under that same
+    // path would NOT override it. roomSecrets is a separate top-level node
+    // (a sibling of rooms, not a descendant), so the broad grant above never
+    // reaches it — this is the only way to actually keep a value hidden here.
+    //
+    // ".read": false — no client can ever read this, under any condition.
+    // Verification happens only in api/verify-po-pin.js via the Admin SDK,
+    // which bypasses these rules entirely and is the sole place the PIN is
+    // ever compared.
+    //
+    // ".write" only allows creating the node once, at room setup. The verify
+    // function's rate-limit bookkeeping (pinAttempts) is written by the Admin
+    // SDK, which isn't subject to this rule either.
+    "roomSecrets": {
+      "$roomCode": {
+        ".read": false,
+        ".write": "auth != null && !data.exists()"
+      }
+    },
+
+    // Default: deny all access outside rooms/ and roomSecrets/
+    ".read": false,
+    ".write": false
+  }
+}
