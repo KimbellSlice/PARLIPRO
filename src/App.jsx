@@ -482,7 +482,7 @@ function SetupPhase({ onStart }) {
   const moveBill = (idx, dir) => { const ns = [...docket]; const [item] = ns.splice(idx, 1); ns.splice(idx + dir, 0, item); setDocket(ns); };
   const handleDragStart = (idx) => setDragIdx(idx);
   const handleDragOver = (e, idx) => { e.preventDefault(); if (dragIdx === null || dragIdx === idx) return; const ns = [...students]; const [d] = ns.splice(dragIdx, 1); ns.splice(idx, 0, d); setStudents(ns.map((s, i) => ({ ...s, initialOrder: i }))); setDragIdx(idx); };
-  const handleSeatDragOver = (e, tgt) => { e.preventDefault(); if (seatDrag === null || seatDrag === tgt) return; const ns = [...seatingSlots]; const item = ns[seatDrag]; ns.splice(seatDrag, 1); ns.splice(tgt, 0, item); setSeatingSlots(ns); setSeatDrag(tgt); setSeatingDirty(true); };
+  const handleSeatDragOver = (e, tgt) => { e.preventDefault(); if (seatDrag === null || seatDrag === tgt) return; const ns = [...seatingSlots]; [ns[seatDrag], ns[tgt]] = [ns[tgt], ns[seatDrag]]; setSeatingSlots(ns); setSeatDrag(tgt); setSeatingDirty(true); };
 
   const hasRoster = students.length >= 2;
   const hasDocket = docket.length >= 1;
