@@ -1054,6 +1054,7 @@ export function useActiveRound(config, onCloseRoom) {
   const [competitorSplits, setCompetitorSplits] = useState({});
   const [docketProposals, setDocketProposals] = useState({});
   const [docketAdopted, setDocketAdopted] = useState(!!config.docketAdopted);
+  const docketAdoptedRef = useRef(!!config.docketAdopted);
   const [adoptConfirmPO, setAdoptConfirmPO] = useState(null);
   const [billIntro, setBillIntro] = useState(null);
   const [billResult, setBillResult] = useState(null);
@@ -1144,7 +1145,8 @@ export function useActiveRound(config, onCloseRoom) {
       setSpectatorPresence(data?.spectatorPresence || {});
       if (data?.docketProposals) setDocketProposals(data.docketProposals);
       else setDocketProposals({});
-      if (data?.docketAdopted && !docketAdopted) {
+      if (data?.docketAdopted && !docketAdoptedRef.current) {
+        docketAdoptedRef.current = true;
         setDocketAdopted(true);
         if (data.docket) { setDocket(data.docket); if (data.docket.length > 0) setBillIntro({ index: 0, name: data.docket[0].name }); }
       }
@@ -1234,8 +1236,10 @@ export function useActiveRound(config, onCloseRoom) {
   const switchToSpeechMode = () => { setMode("speech"); setSeekers([]); setActiveSpeech(null); setInQuestionPeriod(false); setSavedSpeechSeekers([]); setLastSpeakerId(null); setQuestionBlockNum(0); setActiveQuestioner(null); };
 
   const applyAdoptedDocket = (newDocket) => {
+    docketAdoptedRef.current = true;
     setDocket(newDocket);
     setDocketAdopted(true);
+    setActiveTab("main");
     if (newDocket.length > 0) setBillIntro({ index: 0, name: newDocket[0].name });
   };
 
