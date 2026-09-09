@@ -392,6 +392,7 @@ function SetupPhase({ onStart }) {
   const [roomName, setRoomName] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [showPasteBox, setShowPasteBox] = useState(true);
+  const [showPasteBillsBox, setShowPasteBillsBox] = useState(false);
   const profanity = useProfanityToast();
   const [students, setStudents] = useState([]);
   const [billInput, setBillInput] = useState("");
@@ -435,6 +436,22 @@ function SetupPhase({ onStart }) {
   const removeStudent = (id) => { setStudents(p => p.filter(s => s.id !== id).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const randomize = () => { setStudents(p => shuffle(p).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const addBill = () => { const n = sanitizeInput(billInput.trim()); if (!n) return; if (containsProfanity(n)) { setBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setBillInput(""); billRef.current?.focus(); };
+  const handlePasteBills = (text) => {
+    const names = text.split(/\n/).map(l => sanitizeInput(l.trim())).filter(n => n && n.length > 0);
+    let added = 0, skipped = 0, profane = 0;
+    setDocket(prev => {
+      let next = [...prev];
+      for (const name of names) {
+        if (containsProfanity(name)) { profane++; continue; }
+        if (next.some(b => b.name.toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        next.push({ id: Date.now() + Math.random() + added, name, status: null });
+        added++;
+      }
+      return next;
+    });
+    setShowPasteBillsBox(false);
+    if (profane > 0) profanity.trigger();
+  };
   const removeBill = (id) => setDocket(p => p.filter(b => b.id !== id));
   const moveBill = (idx, dir) => { const ns = [...docket]; const [item] = ns.splice(idx, 1); ns.splice(idx + dir, 0, item); setDocket(ns); };
   const handleDragStart = (idx) => setDragIdx(idx);
@@ -528,7 +545,10 @@ function SetupPhase({ onStart }) {
               <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 8, maxWidth: 520, margin: "0 auto", flex: 1 }}>
                 {seatingSlots.map((student, idx) => (
                   <div key={student ? `s-${student.id}` : `e-${idx}`} draggable={!!student} onDragStart={() => student && setSeatDrag(idx)} onDragOver={e => handleSeatDragOver(e, idx)} onDragEnd={() => setSeatDrag(null)} style={{ minHeight: 50, borderRadius: 7, border: student ? "none" : "2px dashed #3a3530", display: "flex", alignItems: "center", justifyContent: "center", cursor: student ? "grab" : "default" }}>
-                    {student ? <div style={{ width: "100%", background: `linear-gradient(135deg, ${COLORS[student.initialOrder % COLORS.length]}cc, ${COLORS[student.initialOrder % COLORS.length]}99)`, borderRadius: 7, padding: "10px 8px", fontSize: 13, fontWeight: 600, textAlign: "center", border: seatDrag === idx ? `2px solid ${GOLD}` : "2px solid transparent", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", opacity: seatDrag === idx ? 0.7 : 1 }}>{student.name}</div> : <span style={{ color: "#3a3530", fontSize: 11 }}>—</span>}
+                    {student ? <div style={{ width: "100%", background: `linear-gradient(135deg, ${COLORS[student.initialOrder % COLORS.length]}cc, ${COLORS[student.initialOrder % COLORS.length]}99)`, borderRadius: 7, padding: "10px 8px", textAlign: "center", border: seatDrag === idx ? `2px solid ${GOLD}` : "2px solid transparent", opacity: seatDrag === idx ? 0.7 : 1 }}>
+                      {splitName(student.name).first && <div style={{ fontSize: 10, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{splitName(student.name).first}</div>}
+                      <div style={{ fontSize: 15, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{splitName(student.name).last}</div>
+                    </div> : <span style={{ color: "#3a3530", fontSize: 11 }}>—</span>}
                   </div>
                 ))}
               </div>
@@ -543,7 +563,18 @@ function SetupPhase({ onStart }) {
             <div style={{ display: "flex", gap: 8 }}>
               <input ref={billRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addBill()} placeholder="Bill name, then Enter" aria-label="Bill name" style={{ ...IS, width: "auto", flex: 1 }} />
               <button onClick={addBill} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button>
+              <button onClick={() => setShowPasteBillsBox(p => !p)} style={{ padding: "10px 14px", background: showPasteBillsBox ? "#2a2520" : "transparent", color: showPasteBillsBox ? GOLD : "#9B917F", border: `1px solid ${showPasteBillsBox ? GOLD : "#3a3530"}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Paste List</button>
             </div>
+            {showPasteBillsBox && (
+              <div style={{ marginTop: 10, padding: 14, background: "#2a2520", borderRadius: 8, border: `1px solid ${GOLD}44` }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Paste a list of bills (one per line)</div>
+                <textarea id="paste-bills" rows={6} placeholder={"Bill 1\nBill 2\nBill 3\n..."} style={{ width: "100%", background: "#1e1b17", color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 6, padding: "10px 12px", fontFamily: "'DM Mono', monospace", fontSize: 13, lineHeight: 1.6, resize: "vertical" }} />
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button onClick={() => { const el = document.getElementById("paste-bills"); if (el && el.value.trim()) handlePasteBills(el.value); }} style={{ padding: "8px 18px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Add All</button>
+                  <button onClick={() => setShowPasteBillsBox(false)} style={{ padding: "8px 14px", background: "transparent", color: "#6b6358", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
+                </div>
+              </div>
+            )}
           </div>
           <p style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 12 }}>Add all bills from the legislation pack. The docket will be decided after the chamber opens.</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -571,6 +602,12 @@ function SetupPhase({ onStart }) {
 }
 
 // ═══ SHARED DISPLAY COMPONENTS ═══
+function splitName(name) {
+  const parts = (name || "").trim().split(/\s+/);
+  if (parts.length < 2) return { first: "", last: parts[0] || "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+}
+
 function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeSpeech, mode, interactive, onToggle, poStudentId, lastSpeakerId, inQuestionPeriod }) {
   const getStudent = (id) => students.find(s => s.id === id);
   const isMobile = useIsMobile();
@@ -587,7 +624,10 @@ function SeatingGrid({ seatingSlots, cols, frontSide, students, seekers, activeS
             const isSk = seekers?.includes(s.id), isSp = activeSpeech?.studentId === s.id, isLastSpeaker = inQuestionPeriod && lastSpeakerId === s.id, col = COLORS[(s.initialOrder||0) % COLORS.length], locked = (!!activeSpeech && mode === "speech") || isPO || isLastSpeaker;
             return (<div key={idx} role="gridcell" tabIndex={interactive && !locked ? 0 : -1} aria-label={`${s.name}${isPO ? " (PO)" : ""}${isLastSpeaker ? " (Speaker)" : ""}, ${s.speeches||0} speeches, ${s.questions||0} questions${isSk ? ", selected" : ""}${isSp ? ", speaking" : ""}`} aria-pressed={isSk} onClick={() => interactive && !locked && !isPO && onToggle?.(s.id)} onKeyDown={e => { if ((e.key === "Enter" || e.key === " ") && interactive && !locked && !isPO) { e.preventDefault(); onToggle?.(s.id); } }} style={{ background: isPO ? "#2a2520" : isLastSpeaker ? "linear-gradient(135deg, #2D3A4A, #1E2A3A)" : isSp ? "linear-gradient(135deg, #2D4A3E, #1E3A2E)" : isSk ? `linear-gradient(135deg, ${GOLD}, #C49632)` : `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 5px 5px" : "12px 10px 10px", cursor: interactive && !locked && !isPO ? "pointer" : "default", textAlign: "center", border: isPO ? "2px dashed #3a3530" : isLastSpeaker ? "2px solid #7BA3BF" : isSp ? "2px solid #5AE89A" : isSk ? "2px solid #F0D78C" : "2px solid transparent", transition: "all 0.15s ease", color: isPO ? "#6b6358" : isLastSpeaker ? "#9BB8CF" : isSk ? "#1a1714" : "#E8E0D0", position: "relative", userSelect: "none", opacity: isPO ? 0.4 : isLastSpeaker ? 0.5 : locked && !isSp ? 0.5 : 1, outline: "none" }}>
               {isLastSpeaker && <div style={{ position: "absolute", top: isMobile ? -6 : -8, right: isMobile ? -4 : -6, background: "#7BA3BF", color: "#1a1714", fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 7 : 8, fontWeight: 700, padding: isMobile ? "1px 3px" : "1px 5px", borderRadius: 3, textTransform: "uppercase" }}>Speaker</div>}
-              <div style={{ fontSize: isMobile ? 11 : 15, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", marginBottom: isMobile ? 1 : 4 }}>{s.name}</div>
+              <div style={{ marginBottom: isMobile ? 1 : 4 }}>
+                {splitName(s.name).first && <div style={{ fontSize: isMobile ? 8 : 11, fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{splitName(s.name).first}</div>}
+                <div style={{ fontSize: isMobile ? 13 : 18, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.02em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{splitName(s.name).last}</div>
+              </div>
               {isPO && <div style={{ fontSize: 8, fontFamily: "'DM Mono', monospace", color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>PO</div>}
               <div style={{ fontSize: isMobile ? 8 : 10, fontFamily: "'DM Mono', monospace", opacity: 0.75, display: "flex", justifyContent: "center", gap: isMobile ? 4 : 8 }}><span>🎤{s.speeches||0}</span><span>❓{s.questions||0}</span></div>
               {isSk && !isSp && <div style={{ position: "absolute", top: -2, right: -2, width: 9, height: 9, borderRadius: "50%", background: "#F0D78C", border: "2px solid #1a1714" }} />}
