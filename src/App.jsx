@@ -893,7 +893,7 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
   );
 }
 
-function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, setDocket, setDocketAdopted }) {
+function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, onAdopted }) {
   return (
     <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
       <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
@@ -957,8 +957,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
                 }
                 adoptDocket(roomCode, billIds, legislationPack).then(() => {
                   const newDocket = billIds.map(id => legislationPack.find(b => String(b.id) === String(id))).filter(Boolean).map(b => ({ ...b, status: null }));
-                  setDocket(newDocket);
-                  setDocketAdopted(true);
+                  onAdopted(newDocket);
                 }).catch(console.error);
                 setAdoptConfirmPO(null);
               }} style={{ flex: 1, padding: "10px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Adopt</button>
@@ -1056,6 +1055,8 @@ export function useActiveRound(config, onCloseRoom) {
   const [docketProposals, setDocketProposals] = useState({});
   const [docketAdopted, setDocketAdopted] = useState(!!config.docketAdopted);
   const [adoptConfirmPO, setAdoptConfirmPO] = useState(null);
+  const [billIntro, setBillIntro] = useState(null);
+  const [billResult, setBillResult] = useState(null);
   const legislationPack = config.legislationPack || config.docket || [];
   const [competitorClaims, setCompetitorClaims] = useState({});
   const [spectatorPresence, setSpectatorPresence] = useState({});
@@ -1143,7 +1144,10 @@ export function useActiveRound(config, onCloseRoom) {
       setSpectatorPresence(data?.spectatorPresence || {});
       if (data?.docketProposals) setDocketProposals(data.docketProposals);
       else setDocketProposals({});
-      if (data?.docketAdopted && !docketAdopted) { setDocketAdopted(true); if (data.docket) setDocket(data.docket); }
+      if (data?.docketAdopted && !docketAdopted) {
+        setDocketAdopted(true);
+        if (data.docket) { setDocket(data.docket); if (data.docket.length > 0) setBillIntro({ index: 0, name: data.docket[0].name }); }
+      }
     });
     return unsub;
   }, [roomCode]);
@@ -1229,15 +1233,37 @@ export function useActiveRound(config, onCloseRoom) {
   const removeSeeker = (id) => setSeekers(p => p.filter(x => x !== id));
   const switchToSpeechMode = () => { setMode("speech"); setSeekers([]); setActiveSpeech(null); setInQuestionPeriod(false); setSavedSpeechSeekers([]); setLastSpeakerId(null); setQuestionBlockNum(0); setActiveQuestioner(null); };
 
+  const applyAdoptedDocket = (newDocket) => {
+    setDocket(newDocket);
+    setDocketAdopted(true);
+    if (newDocket.length > 0) setBillIntro({ index: 0, name: newDocket[0].name });
+  };
+
   const resolveBill = (passed) => {
     pushUndo();
+    const billName = currentBill?.name;
+    const sponsorEntry = history.find(h => h.type === "speech" && h.bill === billName && (h.side === "Authorship" || h.side === "Sponsorship"));
     setDocket(p => p.map((b, i) => i === currentBillIdx ? { ...b, status: passed ? "passed" : "failed" } : b));
-    setHistory(p => [{ type: "bill", name: currentBill?.name, status: passed ? "Passed" : "Failed", time: Date.now() }, ...p]);
+    setHistory(p => [{ type: "bill", name: billName, status: passed ? "Passed" : "Failed", time: Date.now() }, ...p]);
     setAffCount(0); setNegCount(0); setSpeechSequence([]); setActiveSpeech(null); setPendingSpeaker(null); setSeekers([]); setMode("speech"); setSpeechStartTime(null); setInQuestionPeriod(false); setLastSpeakerId(null); setQuestionBlockNum(0); setActiveQuestioner(null);
     const nextIdx = currentBillIdx + 1;
+    const nextBill = docket[nextIdx] || null;
     setCurrentBillIdx(nextIdx);
     setShowPQConfirm(false);
     if (nextIdx >= docket.length) setActiveTab("orders");
+    setBillResult({
+      name: billName,
+      passed,
+      sponsorName: sponsorEntry?.name || null,
+      sponsorRole: sponsorEntry?.side === "Authorship" ? "Author" : sponsorEntry?.side === "Sponsorship" ? "Sponsor" : null,
+      nextBillName: nextBill?.name || null,
+      nextBillIndex: nextIdx,
+    });
+  };
+
+  const dismissBillResult = () => {
+    if (billResult?.nextBillName) setBillIntro({ index: billResult.nextBillIndex, name: billResult.nextBillName });
+    setBillResult(null);
   };
 
   const addBillLive = () => { const n = sanitizeInput(docketBillInput.trim()); if (!n) return; if (containsProfanity(n)) { setDocketBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setDocketBillInput(""); };
@@ -1294,6 +1320,7 @@ export function useActiveRound(config, onCloseRoom) {
     getNextSpeechInfo, breakCycle, recognizeSpeaker, startSpeechFromChoice, endSpeech,
     recognizeQuestioner, removeSeeker, switchToSpeechMode, resolveBill, addBillLive,
     removeBillLive, moveBillLive, renameStudent, addStudentLive, handleCloseRoom, nextInfo, displayName,
+    billIntro, setBillIntro, billResult, applyAdoptedDocket, dismissBillResult,
   };
 }
 
@@ -1312,6 +1339,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents,
     competitorSplits, docketProposals,
     docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
+    billIntro, setBillIntro, billResult, applyAdoptedDocket, dismissBillResult,
     competitorClaims, spectatorPresence, isMobile,
     showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue,
     inQuestionPeriod, lastSpeakerId, questionBlockNum,
@@ -1393,6 +1421,34 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
               <button onClick={() => setShowCloseConfirm(false)} style={{ flex: 1, padding: "10px", background: "#2a2520", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, cursor: "pointer" }}>Cancel</button>
               <button onClick={handleCloseRoom} style={{ flex: 1, padding: "10px", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Close Chamber</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bill Intro Popup */}
+      {billIntro && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 420, textAlign: "center" }}>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Bill {billIntro.index + 1}{docket.length > 0 ? ` of ${docket.length}` : ""}</div>
+            <p style={{ fontSize: 20, color: "#E8E0D0", fontWeight: 600, marginBottom: 24, wordBreak: "break-word" }}>{billIntro.name}</p>
+            <button onClick={() => setBillIntro(null)} style={{ width: "100%", padding: "12px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Begin Debate</button>
+          </div>
+        </div>
+      )}
+
+      {/* Bill Result Popup */}
+      {billResult && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ background: "#231f1b", border: `1px solid ${billResult.passed ? "#3A6B4E" : "#6B3A3A"}`, borderRadius: 12, padding: 28, maxWidth: 420, textAlign: "center" }}>
+            <p style={{ fontSize: 18, color: "#E8E0D0", fontWeight: 600, marginBottom: 6, wordBreak: "break-word" }}>{billResult.name}</p>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: billResult.passed ? "#5AE89A" : "#C45A5A", marginBottom: 14 }}>{billResult.passed ? "✓ Passed" : "✗ Failed"}</div>
+            {billResult.sponsorName && (
+              <p style={{ fontSize: 13, color: "#9B917F", marginBottom: 24 }}>
+                {billResult.passed ? "Congratulations" : "Condolences"} to {billResult.sponsorRole ? `the ${billResult.sponsorRole}, ` : ""}<span style={{ color: "#E8E0D0", fontWeight: 600 }}>{billResult.sponsorName}</span>.
+              </p>
+            )}
+            {!billResult.sponsorName && <div style={{ marginBottom: 24 }} />}
+            <button onClick={dismissBillResult} style={{ width: "100%", padding: "12px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{billResult.nextBillName ? `Continue to Next Bill: ${billResult.nextBillName}` : "View Final Results"}</button>
           </div>
         </div>
       )}
@@ -1512,7 +1568,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         docketAdopted ? (
           <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
         ) : (
-          <DocketAdoptionPanel isMobile={isMobile} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} docketProposals={docketProposals} adoptConfirmPO={adoptConfirmPO} setAdoptConfirmPO={setAdoptConfirmPO} roomCode={roomCode} setDocket={setDocket} setDocketAdopted={setDocketAdopted} />
+          <DocketAdoptionPanel isMobile={isMobile} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} docketProposals={docketProposals} adoptConfirmPO={adoptConfirmPO} setAdoptConfirmPO={setAdoptConfirmPO} roomCode={roomCode} onAdopted={applyAdoptedDocket} />
         )
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
