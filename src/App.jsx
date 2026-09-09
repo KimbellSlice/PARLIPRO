@@ -392,7 +392,7 @@ function SetupPhase({ onStart }) {
   const [roomName, setRoomName] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [showPasteBox, setShowPasteBox] = useState(true);
-  const [showPasteBillsBox, setShowPasteBillsBox] = useState(false);
+  const [showPasteBillsBox, setShowPasteBillsBox] = useState(true);
   const profanity = useProfanityToast();
   const [students, setStudents] = useState([]);
   const [billInput, setBillInput] = useState("");
@@ -437,7 +437,18 @@ function SetupPhase({ onStart }) {
   const randomize = () => { setStudents(p => shuffle(p).map((s, i) => ({ ...s, initialOrder: i }))); setSeatingDirty(false); };
   const addBill = () => { const n = sanitizeInput(billInput.trim()); if (!n) return; if (containsProfanity(n)) { setBillInput(""); profanity.trigger(); return; } setDocket(p => [...p, { id: Date.now() + Math.random(), name: n, status: null }]); setBillInput(""); billRef.current?.focus(); };
   const handlePasteBills = (text) => {
-    const names = text.split(/\n/).map(l => sanitizeInput(l.trim())).filter(n => n && n.length > 0);
+    const starterRe = /^(the|a\s+bill|a\s+resolution|an\s+act|a\s+constitutional\s+amendment)\b/i;
+    const rawLines = text.split(/\n/);
+    const merged = [];
+    let forceNew = true;
+    for (const rawLine of rawLines) {
+      const line = rawLine.trim();
+      if (!line) { forceNew = true; continue; }
+      if (forceNew || merged.length === 0 || starterRe.test(line)) merged.push(line);
+      else merged[merged.length - 1] += " " + line;
+      forceNew = false;
+    }
+    const names = merged.map(l => sanitizeInput(l)).filter(n => n && n.length > 0);
     let added = 0, skipped = 0, profane = 0;
     setDocket(prev => {
       let next = [...prev];
