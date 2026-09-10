@@ -900,7 +900,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
 
       {/* Recommended Docket */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket</div>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket - Based on Splits</div>
         {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId); return rec.length > 0 ? (
           <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
             {rec.map((b, i) => (
@@ -913,6 +913,22 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
             <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
           </div>
         ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Waiting for competitor splits...</div>; })()}
+      </div>
+
+      {/* Original Docket */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Original Docket</div>
+        {legislationPack.length > 0 ? (
+          <div style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
+            {legislationPack.map((b, i) => (
+              <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < legislationPack.length - 1 ? "1px solid #3a3530" : "none" }}>
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+              </div>
+            ))}
+            <button onClick={() => setAdoptConfirmPO("original")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Original Docket</button>
+          </div>
+        ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No legislation was entered at setup.</div>}
       </div>
 
       {/* Submitted Proposals */}
@@ -951,6 +967,8 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
                 let billIds;
                 if (adoptConfirmPO === "recommended") {
                   billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId).map(b => String(b.id));
+                } else if (adoptConfirmPO === "original") {
+                  billIds = legislationPack.map(b => String(b.id));
                 } else {
                   const proposal = docketProposals[adoptConfirmPO];
                   billIds = proposal?.bills || [];
@@ -2056,7 +2074,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
           <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
             {/* Recommended Docket */}
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Recommended Docket</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Recommended Docket - Based on Splits</div>
               {(() => { const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId); return rec.length > 0 ? (
                 <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
                   {rec.map((b, i) => (
@@ -2068,6 +2086,21 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                   ))}
                 </div>
               ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Enter splits to generate recommendations</div>; })()}
+            </div>
+
+            {/* Original Docket */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#9B917F", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Original Docket</div>
+              {legislationPack.length > 0 ? (
+                <div style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
+                  {legislationPack.map((b, i) => (
+                    <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < legislationPack.length - 1 ? "1px solid #3a3530" : "none" }}>
+                      <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No legislation was entered at setup.</div>}
             </div>
 
             {/* My Submitted Dockets */}
