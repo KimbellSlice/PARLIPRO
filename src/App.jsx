@@ -1929,11 +1929,15 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
                 To begin the round:
                 <ol style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.8 }}>
+                  <li>Write down the PO PIN above — it disappears once you select your name</li>
                   <li>Click <b style={{ color: "#E8E0D0" }}>Select Name</b> above</li>
                   <li>Select your name</li>
                   <li>Click <b style={{ color: "#E8E0D0" }}>Claim PO</b></li>
                   <li>Enter the PO PIN</li>
                 </ol>
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #3a3530" }}>
+                  Once you've claimed PO, you're set to start the round. The rest of the chamber doesn't need to join to compete — they can hop in anytime from their own device to follow along, set splits, or nominate the docket.
+                </div>
               </div>
             </div>
             <div style={{ flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 200, background: "#1e1b17", border: "1px solid #3a3530", borderRadius: 8, padding: "14px 16px" }}>
@@ -2257,7 +2261,7 @@ export default function App() {
     try {
       const saved = sessionStorage.getItem('parlipro-session');
       if (saved) {
-        const { view: v, roomCode, spectatorCode: sc, competitorInfo: ci } = JSON.parse(saved);
+        const { view: v, roomCode, spectatorCode: sc, competitorInfo: ci, createdRoomPin: pin } = JSON.parse(saved);
         if (v === "active" && roomCode) {
           const poData = sessionStorage.getItem(`parlipro-po-${roomCode}`);
           if (poData) {
@@ -2269,6 +2273,7 @@ export default function App() {
         }
         if (v === "spectator" && sc) {
           setSpectatorCode(sc);
+          if (pin) setCreatedRoomPin(pin);
           setView("spectator");
           return;
         }
@@ -2285,10 +2290,10 @@ export default function App() {
   useEffect(() => {
     try {
       sessionStorage.setItem('parlipro-session', JSON.stringify({
-        view, roomCode: config?.roomCode || null, spectatorCode, competitorInfo
+        view, roomCode: config?.roomCode || null, spectatorCode, competitorInfo, createdRoomPin
       }));
     } catch(e) {}
-  }, [view, config, spectatorCode]);
+  }, [view, config, spectatorCode, createdRoomPin]);
 
   const handleCloseRoom = () => { setView("landing"); setConfig(null); };
   const handleReleasePO = (roomCode) => {
