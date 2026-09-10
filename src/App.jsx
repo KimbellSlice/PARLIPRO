@@ -848,9 +848,9 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
               <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: hasAny ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => hasAny && setExpandedBill(isExpanded ? null : b.id)}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
                 {hasAny ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                  {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                  {totals && <span style={{ fontSize: 11 }}><span style={{ fontSize: 9, color: "#9B917F" }}>Room</span> <span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                   {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
+                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ fontSize: 9, color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
                   {" "}<span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
@@ -873,6 +873,9 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
               </div>
             ); })()}
             </div>); })}
+        </div>
+        <div style={{ marginTop: 16, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", lineHeight: 1.6 }}>
+          <span style={{ color: "#9B917F" }}>Room</span> splits — submitted by competitors through the app. <span style={{ color: "#9B917F" }}>PO</span> splits — entered manually by the Presiding Officer.
         </div>
       </div>
     </div>
