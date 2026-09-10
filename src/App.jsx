@@ -900,14 +900,14 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
                   {!manualMode && (hasTotals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totalAff}A</span> / <span style={{ color: "#C45A5A" }}>{totalNeg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>)}
                   {manualMode && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
-                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} style={{ width: 48, ...IS, padding: "4px 6px", fontSize: 12, textAlign: "center" }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
+                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} style={{ width: 32, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
                       </label>
-                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
-                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 48, ...IS, padding: "4px 6px", fontSize: 12, textAlign: "center" }} />
+                      <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
+                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 32, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
                       </label>
-                      {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic" }}>+{auto.aff}A/{auto.neg}N from app</span>}
+                      {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic", whiteSpace: "nowrap" }}>+{auto.aff}A/{auto.neg}N from app</span>}
                     </div>
                   )}
                 </div>
