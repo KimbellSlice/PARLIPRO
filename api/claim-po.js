@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { getAdminDatabase, hashPin, normalizeRoomCode, pinMatches, PO_LEASE_MS, requireUser, sendError } from '../server/firebase-admin.js';
+import { createLeaseToken, getAdminDatabase, hashPin, leaseIdForToken, normalizeRoomCode, pinMatches, PO_LEASE_MS, requireUser, sendError } from '../server/firebase-admin.js';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 30000;
@@ -67,10 +67,12 @@ export default async function handler(req, res) {
 
     const accessRef = roomRef.child('access');
     const expiresAt = now + PO_LEASE_MS;
+    const leaseToken = createLeaseToken();
+    const controllerLeaseId = leaseIdForToken(leaseToken);
     const lease = await accessRef.transaction((current) => {
-      if (!current) return { ownerUid: secret.ownerUid || user.uid, controllerUid: user.uid, controllerExpiresAt: expiresAt };
+      if (!current) return { ownerUid: secret.ownerUid || user.uid, controllerUid: user.uid, controllerExpiresAt: expiresAt, controllerLeaseId };
       if (current.controllerUid && current.controllerUid !== user.uid && current.controllerExpiresAt > now) return;
-      return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt };
+      return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt, controllerLeaseId };
     });
     if (!lease.committed) return res.status(409).json({ ok: false, error: 'po_already_active' });
     const roomUpdates = {
@@ -88,7 +90,7 @@ export default async function handler(req, res) {
       await secretRef.update({ pinSalt: migrated.salt, pinHash: migrated.hash, poPin: null, ownerUid: secret.ownerUid || user.uid });
     }
     await attemptRef.remove();
-    return res.status(200).json({ ok: true, expiresAt, poStudentId: requestedStudentId });
+    return res.status(200).json({ ok: true, expiresAt, poStudentId: requestedStudentId, leaseToken });
   } catch (error) {
     return sendError(res, error);
   }

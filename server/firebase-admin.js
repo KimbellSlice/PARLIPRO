@@ -7,6 +7,15 @@ const DATABASE_URL = 'https://parlipro-fd42b-default-rtdb.firebaseio.com';
 
 export const PO_LEASE_MS = 75000;
 
+export function createLeaseToken() {
+  return randomBytes(32).toString('base64url');
+}
+
+export function leaseIdForToken(token) {
+  if (typeof token !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
+  return createHash('sha256').update(token).digest('hex');
+}
+
 export function getAdminApp() {
   const existing = getApps();
   if (existing.length) return existing[0];

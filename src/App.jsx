@@ -297,7 +297,7 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
     setVerifyingPin(false);
     if (result.ok) {
       getRoomOnce(pendingCode, (data) => {
-        if (data) onRejoinPO(pendingCode, data, result.poStudentId ?? null);
+        if (data) onRejoinPO(pendingCode, data, result.poStudentId ?? null, result.leaseToken);
         else setJoinError("Chamber not found.");
       }, () => setJoinError("PO access was granted, but the chamber could not be loaded. Try rejoining."));
       return;
@@ -1101,7 +1101,7 @@ function RosterTab({ students, onRename, onAdd }) {
 // object using the same names the JSX previously used directly — this was a
 // pure extraction, not a rewrite, so ActiveRound's render body is unchanged.
 export function useActiveRound(config, onCloseRoom) {
-  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, questionPrec: configQuestionPrec, poStudentId } = config;
+  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, questionPrec: configQuestionPrec, poStudentId, leaseToken } = config;
 
   // Try restoring from session (for rejoin / refresh)
   const restored = (() => {
@@ -1243,7 +1243,7 @@ export function useActiveRound(config, onCloseRoom) {
   // PO heartbeat — proves this session is active (every 5 seconds)
   useEffect(() => {
     const renew = async () => {
-      await renewPOLease(roomCode);
+      await renewPOLease(roomCode, leaseToken);
       setLeaseLost(false);
     };
     const handleRenewalError = (error) => {
@@ -1252,7 +1252,7 @@ export function useActiveRound(config, onCloseRoom) {
     };
     const iv = setInterval(() => { renew().catch(handleRenewalError); }, 30000);
     return () => clearInterval(iv);
-  }, [roomCode]);
+  }, [roomCode, leaseToken]);
 
   // Subscribe to competitor intents and splits
   useEffect(() => {
@@ -1413,7 +1413,7 @@ export function useActiveRound(config, onCloseRoom) {
 
   const handleCloseRoom = async () => {
     try {
-      await deleteRoom(roomCode);
+      await deleteRoom(roomCode, leaseToken);
       try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch {}
       onCloseRoom();
     } catch (error) {
@@ -1843,7 +1843,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     const result = await verifyPoPin(roomCode, pin, competitorId || null);
     setVerifyingPin(false);
     if (result.ok) {
-      onClaimPO(roomCode, state, result.poStudentId ?? null);
+      onClaimPO(roomCode, state, result.poStudentId ?? null, result.leaseToken);
     } else if (result.error === "po_already_active") {
       setPinError("A PO is currently active in this chamber.");
       setPin("");
@@ -2382,9 +2382,10 @@ export default function App() {
         if (v === "active" && roomCode) {
           const poData = sessionStorage.getItem(`parlipro-po-${roomCode}`);
           if (poData) {
-            await renewPOLease(roomCode);
+            const restoredConfig = JSON.parse(poData);
+            await renewPOLease(roomCode, restoredConfig.leaseToken);
             if (cancelled) return;
-            setConfig(JSON.parse(poData));
+            setConfig(restoredConfig);
             setView("active");
             return;
           }
@@ -2422,7 +2423,7 @@ export default function App() {
     const poId = config?.poStudentId;
     const poStudent = poId ? (config?.students || []).find(s => String(s.id) === String(poId)) : null;
     try {
-      await releasePOLease(roomCode);
+      await releasePOLease(roomCode, config?.leaseToken);
     } catch (error) {
       console.error('Failed to release PO control:', error);
       alert('PO control could not be released. Check your connection and try again.');
@@ -2441,7 +2442,7 @@ export default function App() {
     }
   };
 
-  const handleRejoinPO = (roomCode, firebaseData, claimingStudentId) => {
+  const handleRejoinPO = (roomCode, firebaseData, claimingStudentId, leaseToken) => {
     // Rebuild config from Firebase data
     const cfg = {
       students: (firebaseData.students || []).map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[], initialOrder: s.initialOrder||0 })),
@@ -2456,6 +2457,7 @@ export default function App() {
       poStudentId: claimingStudentId ?? null,
       legislationPack: firebaseData.legislationPack || firebaseData.docket || [],
       docketAdopted: firebaseData.docketAdopted || false,
+      leaseToken,
     };
     // Also save to session so ActiveRound can restore internal state
     try {

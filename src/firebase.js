@@ -95,12 +95,12 @@ export function claimPOLease(roomCode, pin, studentId = null) {
   return authenticatedPost('/api/claim-po', { roomCode, pin, studentId });
 }
 
-export function renewPOLease(roomCode) {
-  return authenticatedPost('/api/renew-po-lease', { roomCode });
+export function renewPOLease(roomCode, leaseToken) {
+  return authenticatedPost('/api/renew-po-lease', { roomCode, leaseToken });
 }
 
-export function releasePOLease(roomCode) {
-  return authenticatedPost('/api/release-po', { roomCode });
+export function releasePOLease(roomCode, leaseToken) {
+  return authenticatedPost('/api/release-po', { roomCode, leaseToken });
 }
 
 export function subscribeToRoom(roomCode, callback, onError = console.error) {
@@ -123,8 +123,8 @@ export function getRoomOnce(roomCode, callback, onError) {
     .catch((error) => { if (onError) onError(error); else throw error; });
 }
 
-export function deleteRoom(roomCode) {
-  return authenticatedPost('/api/close-room', { roomCode });
+export function deleteRoom(roomCode, leaseToken) {
+  return authenticatedPost('/api/close-room', { roomCode, leaseToken });
 }
 
 // ═══ INCREMENTAL STATE UPDATES ═══
