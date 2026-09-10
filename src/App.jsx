@@ -1918,19 +1918,33 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>ROOM CODE</div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 20, color: "#E8E0D0", fontWeight: 700, letterSpacing: "0.12em", marginBottom: 10 }}>{roomCode}</div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>PO PIN</div>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 24, color: GOLD, fontWeight: 700, letterSpacing: "0.15em" }}>{createdPin}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 24, color: GOLD, fontWeight: 700, letterSpacing: "0.15em" }}>{createdPin}</div>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8A54B", fontWeight: 700 }}>← write this down!</div>
+              </div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 8, lineHeight: 1.6 }}>The Presiding Officer will need this PIN to claim control of the chamber.</div>
             </div>
             <div style={{ flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 200, background: "#1e1b17", border: "1px solid #3a3530", borderRadius: 8, padding: "14px 16px" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Presiding Officer</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Presiding Officer <span style={{ color: "#6b6358", textTransform: "none", letterSpacing: 0 }}>(required)</span></div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
-                You're already in the chamber — no need to join separately to run the round. Click <b style={{ color: "#E8E0D0" }}>Select Name</b> above, pick your name, then click <b style={{ color: "#E8E0D0" }}>Claim PO</b> and enter the PIN. (Running from another device instead? Go to parliproapp.com, join with the room code, select your name, then enter the PIN.)
+                To begin the round:
+                <ol style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.8 }}>
+                  <li>Click <b style={{ color: "#E8E0D0" }}>Select Name</b> above</li>
+                  <li>Select your name</li>
+                  <li>Click <b style={{ color: "#E8E0D0" }}>Claim PO</b></li>
+                  <li>Enter the PO PIN</li>
+                </ol>
               </div>
             </div>
             <div style={{ flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 200, background: "#1e1b17", border: "1px solid #3a3530", borderRadius: 8, padding: "14px 16px" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Competitors &amp; Spectators</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Competitors &amp; Spectators <span style={{ color: "#6b6358", textTransform: "none", letterSpacing: 0 }}>(optional)</span></div>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
-                Go to parliproapp.com, join this chamber with the room code above, and select your name. You'll be able to set bill splits and nominate a docket from there.
+                To view the live round, enter splits, and nominate dockets:
+                <ol style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.8 }}>
+                  <li>Go to parliproapp.com</li>
+                  <li>Enter chamber code <b style={{ color: GOLD }}>{roomCode}</b></li>
+                  <li>Select your name</li>
+                </ol>
               </div>
             </div>
           </div>
