@@ -1440,6 +1440,21 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
         </div>
       )}
 
+      {/* Previous Question Confirm Popup */}
+      {showPQConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
+          <div style={{ position: "relative", background: "#231f1b", border: `1px solid ${GOLD}`, borderRadius: 12, padding: 28, maxWidth: 380, width: "90%", textAlign: "center" }}>
+            <button aria-label="Cancel" onClick={() => setShowPQConfirm(false)} style={{ position: "absolute", top: 12, right: 12, background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Move to Previous Question</div>
+            <p style={{ fontSize: 18, color: "#E8E0D0", fontWeight: 600, marginBottom: 24, wordBreak: "break-word" }}>{currentBill?.name}</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => resolveBill(true)} style={{ flex: 1, padding: "10px 0", background: "#2D4A3E", color: "#5AE89A", border: "1px solid #3A6B4E", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>✓ Passed</button>
+              <button onClick={() => resolveBill(false)} style={{ flex: 1, padding: "10px 0", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>✗ Failed</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Bill Result Popup */}
       {billResult && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 999 }}>
@@ -1452,7 +1467,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
               </p>
             )}
             {!billResult.sponsorName && <div style={{ marginBottom: 24 }} />}
-            <button onClick={dismissBillResult} style={{ width: "100%", padding: "12px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{billResult.nextBillName ? `Continue to Next Bill: ${billResult.nextBillName}` : "View Final Results"}</button>
+            <button onClick={dismissBillResult} style={{ width: "100%", padding: "12px", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>{billResult.nextBillName ? "Next Bill" : "View Final Results"}</button>
           </div>
         </div>
       )}
@@ -1540,15 +1555,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
             </div>
             {mode === "speech" && !activeSpeech && activeSeekers.length === 0 && !showPQConfirm && (<div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
               {!nextInfo.needsChoice && nextInfo.canOverride && (<><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase" }}>Up next: {nextInfo.label}</div><button onClick={breakCycle} style={{ width: "100%", padding: "8px 0", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>⚡ Break Cycle → {nextInfo.side === "aff" ? "Neg" : "Aff"}</button></>)}
-              {speechSequence.length > 0 && <button onClick={() => setShowPQConfirm(true)} style={{ width: "100%", padding: "8px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>📜 Move to Previous Question</button>}
-            </div>)}
-            {showPQConfirm && (<div style={{ background: "#2a2520", borderRadius: 8, border: `1px solid ${GOLD}`, padding: 16, marginBottom: 12 }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, textTransform: "uppercase", marginBottom: 8, textAlign: "center" }}>Vote: {currentBill?.name}</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={() => resolveBill(true)} style={{ flex: 1, padding: "10px 0", background: "#2D4A3E", color: "#5AE89A", border: "1px solid #3A6B4E", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>✓ Passed</button>
-                <button onClick={() => resolveBill(false)} style={{ flex: 1, padding: "10px 0", background: "#4A2D2D", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>✗ Failed</button>
-              </div>
-              <button onClick={() => setShowPQConfirm(false)} style={{ width: "100%", marginTop: 8, background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 0", fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Cancel</button>
+              {speechSequence.length > 0 && <button onClick={() => setShowPQConfirm(true)} style={{ width: "100%", marginTop: 16, padding: "8px 0", background: "transparent", color: GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase" }}>📜 Move to Previous Question</button>}
             </div>)}
             {sortedSeekers.length > 0 && (<div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {sortedSeekers.map((s, idx) => { const isTop = idx === 0; return (<div key={s.id}>{isTop && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: mode === "speech" ? GOLD : "#7BA3BF", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 4 }}>▶ Highest Precedence</div>}<div style={{ display: "flex", alignItems: "center", gap: 8, background: isTop ? `linear-gradient(135deg, ${GOLD}33, #C4963222)` : "#2a2520", border: isTop ? `1px solid ${mode === "speech" ? GOLD : "#7BA3BF"}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 10px" }}><span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: isTop ? GOLD : "#6b6358", width: 16, textAlign: "right", flexShrink: 0 }}>{idx + 1}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 9, fontFamily: "'DM Mono', monospace", color: "#9B917F", marginTop: 2 }}>🎤{s.speeches||0} ❓{s.questions||0}</div></div><div style={{ display: "flex", gap: 4, flexShrink: 0 }}>{isTop && !activeSpeech && mode === "speech" && !inQuestionPeriod && <button onClick={() => recognizeSpeaker(s.id)} style={{ padding: "4px 8px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize speaker">Recognize</button>}{isTop && !activeSpeech && mode === "question" && inQuestionPeriod && <button onClick={() => recognizeQuestioner(s.id)} style={{ padding: "4px 8px", background: "#7BA3BF", color: "#1a1714", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }} aria-label="Recognize questioner">Ask</button>}<button aria-label={"Remove " + s.name + " from queue"} onClick={() => removeSeeker(s.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 16, padding: "2px 4px", lineHeight: 1 }}>×</button></div></div></div>); })}
