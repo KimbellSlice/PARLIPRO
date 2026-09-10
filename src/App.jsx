@@ -1929,7 +1929,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
                 To begin the round:
                 <ol style={{ margin: "6px 0 0", paddingLeft: 18, lineHeight: 1.8 }}>
-                  <li>Write down the PO PIN above — it disappears once you select your name</li>
+                  <li>Write down the PO PIN <b style={{ color: GOLD }}>{createdPin}</b> — it disappears once you select your name</li>
                   <li>Click <b style={{ color: "#E8E0D0" }}>Select Name</b> above</li>
                   <li>Select your name</li>
                   <li>Click <b style={{ color: "#E8E0D0" }}>Claim PO</b></li>
