@@ -209,4 +209,29 @@ Vercel automatically rebuilds and deploys within ~60 seconds.
 
 **Domain not working after adding DNS records**
 → DNS can take up to 48 hours (usually 5–30 minutes). Check https://dnschecker.org
-   to see if your records have propagated.
+
+---
+
+## Security-sensitive deployment
+
+The server endpoints require these Vercel environment variables in Production,
+Preview, and Development environments:
+
+- `FIREBASE_PROJECT_ID`
+- `FIREBASE_CLIENT_EMAIL`
+- `FIREBASE_PRIVATE_KEY`
+- `CRON_SECRET` (a long random value used by the scheduled cleanup endpoint)
+
+Use Node.js 20.19 or newer. Deploy the application and API endpoints before
+publishing `database.rules.json`; the older browser client is not compatible
+with the controller-lease rules. After the application deployment succeeds,
+publish the rules with `firebase deploy --only database`.
+
+The scheduled cleanup in `vercel.json` runs daily. Vercel sends `CRON_SECRET`
+as a bearer token automatically when that environment variable is configured.
+
+For local authorization tests, install JDK 17 or newer and run:
+
+```bash
+npm run test:rules
+```

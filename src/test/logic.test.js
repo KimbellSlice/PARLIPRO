@@ -4,10 +4,13 @@ import { describe, it, expect, vi } from 'vitest';
 // and signInAnonymously() against the real project. Mock it so importing
 // pure logic out of App.jsx doesn't make real network/auth calls.
 vi.mock('../firebase.js', () => ({
-  fbSafe: (id) => String(id).replace(/\./g, '_'),
+  fbSafe: (id) => String(id).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_'),
   STALE_MS: 45000,
   writeRoomState: vi.fn(),
   createRoom: vi.fn(),
+  claimPOLease: vi.fn(),
+  renewPOLease: vi.fn(() => Promise.resolve()),
+  releasePOLease: vi.fn(() => Promise.resolve()),
   setRoomSecret: vi.fn(),
   subscribeToRoom: vi.fn(),
   checkRoomExists: vi.fn(),
@@ -30,12 +33,24 @@ vi.mock('../firebase.js', () => ({
   adoptDocket: vi.fn(),
 }));
 
-const { sortPrec, computeRecommendedDocket, sanitizeInput, containsProfanity } = await import('../App.jsx');
+const { sortPrec, computeRecommendedDocket, sanitizeInput, containsProfanity, getActivePoStudentId } = await import('../App.jsx');
 const { fbSafe } = await import('../firebase.js');
 
 function student(overrides) {
   return { id: 1, name: 'Student', speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: 0, questionOrder: 0, ...overrides };
 }
+
+describe('getActivePoStudentId', () => {
+  it('returns the selected PO only while a controller lease is active', () => {
+    const state = { poStudentId: 'student-1', access: { controllerUid: 'uid-1', controllerExpiresAt: 2000 } };
+    expect(getActivePoStudentId(state, 1000)).toBe('student-1');
+    expect(getActivePoStudentId(state, 2000)).toBeNull();
+  });
+
+  it('does not strand a PO name when no controller owns the room', () => {
+    expect(getActivePoStudentId({ poStudentId: 'student-1', access: { controllerUid: null, controllerExpiresAt: 0 } }, 1000)).toBeNull();
+  });
+});
 
 describe('sortPrec', () => {
   it('orders speech precedence by fewest speeches first', () => {
@@ -140,5 +155,9 @@ describe('containsProfanity', () => {
 describe('fbSafe', () => {
   it('replaces dots with underscores', () => {
     expect(fbSafe('1.23.4')).toBe('1_23_4');
+  });
+
+  it('replaces every character forbidden in a Firebase key', () => {
+    expect(fbSafe('a.b#c$d[e]/f')).toBe('a_b_c_d_e__f');
   });
 });

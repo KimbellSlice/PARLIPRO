@@ -1,11 +1,20 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, setRoomSecret, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, clearPOHeartbeat, cleanupStaleRooms, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket, fbSafe } from "./firebase.js";
+import { writeRoomState, createRoom, claimPOLease, renewPOLease, releasePOLease, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket, fbSafe } from "./firebase.js";
 
-const generateCode = () => { const c = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; return Array.from({ length: 5 }, () => c[Math.floor(Math.random() * c.length)]).join(""); };
-const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
+const generateCode = () => {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const values = crypto.getRandomValues(new Uint8Array(5));
+  return Array.from(values, value => alphabet[value % alphabet.length]).join("");
+};
+const generatePin = () => {
+  const value = new Uint32Array(1);
+  crypto.getRandomValues(value);
+  return String(100000 + (value[0] % 900000));
+};
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
 export const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
+export const getActivePoStudentId = (state, now = Date.now()) => state?.access?.controllerUid && state.access.controllerExpiresAt > now ? state.poStudentId || null : null;
 
 // Compute recommended docket: top 5 bills by debate score (interest × balance)
 export const computeRecommendedDocket = (legislationPack, splits, poStudentId, manualSplits, source = "app") => {
@@ -43,17 +52,12 @@ const escapeHtml = (str) => String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&":
 
 // Verifies a PO PIN against the server-side check in api/verify-po-pin.js.
 // The PIN itself never lives in any client-readable Firebase data — see
-// firebase.js's setRoomSecret and database.rules.json.
-async function verifyPoPin(roomCode, pin) {
+// Successful verification grants this authenticated browser a short-lived lease.
+async function verifyPoPin(roomCode, pin, studentId = null) {
   try {
-    const res = await fetch("/api/verify-po-pin", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ roomCode, pin }),
-    });
-    return await res.json();
+    return await claimPOLease(roomCode, pin, studentId);
   } catch (e) {
-    return { ok: false, error: "network_error" };
+    return { ok: false, error: e.code || "network_error" };
   }
 }
 const BG = "linear-gradient(160deg, #1a1714 0%, #231f1b 50%, #1a1714 100%)";
@@ -68,7 +72,7 @@ const copyToClipboard = (text) => {
     document.body.appendChild(toast);
     setTimeout(() => { toast.style.opacity = "0"; }, 1200);
     setTimeout(() => { document.body.removeChild(toast); }, 1600);
-  } catch(e) { /* fallback: no-op */ }
+  } catch { /* fallback: no-op */ }
 };
 const IS = { width: "100%", padding: "10px 14px", background: "#2a2520", border: "1px solid #3a3530", borderRadius: 6, color: "#E8E0D0", fontSize: 14, fontFamily: "'Newsreader', Georgia, serif", outline: "none", boxSizing: "border-box" };
 const LS = { display: "block", fontSize: 11, color: "#9B917F", fontFamily: "'DM Mono', monospace", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.1em" };
@@ -134,8 +138,8 @@ function SpeechTimer({ onTick, isRestore, savedElapsed, savedRunning, onStateCha
     return () => clearInterval(iv);
   }, [running]);
 
-  useEffect(() => { if (onTick) onTick(elapsed); }, [elapsed]);
-  useEffect(() => { if (onStateChange) onStateChange(elapsed, running); }, [elapsed, running]);
+  useEffect(() => { if (onTick) onTick(elapsed); }, [elapsed, onTick]);
+  useEffect(() => { if (onStateChange) onStateChange(elapsed, running); }, [elapsed, running, onStateChange]);
 
   const toggleRunning = () => {
     if (running) { baseElapsedRef.current = elapsed; setRunning(false); }
@@ -220,18 +224,21 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
 
   const handleJoin = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a valid chamber code"); return; }
+    if (!/^[A-Z0-9]{5}$/.test(code)) { setJoinError("Enter a valid chamber code"); return; }
     setChecking(true); setJoinError("");
     checkRoomExists(code, (exists) => {
       setChecking(false);
       if (exists) onJoinRoom(code);
       else setJoinError("Chamber not found. Check the code and try again.");
+    }, () => {
+      setChecking(false);
+      setJoinError("Could not reach the chamber. Check your connection and try again.");
     });
   };
 
   const handleJoinAsCompetitor = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a valid chamber code"); return; }
+    if (!/^[A-Z0-9]{5}$/.test(code)) { setJoinError("Enter a valid chamber code"); return; }
     setChecking(true); setJoinError("");
     getRoomOnce(code, (data) => {
       setChecking(false);
@@ -242,6 +249,9 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
       setRosterClaims(data.competitorClaims || {});
       setPendingRoomData(data);
       setShowNamePicker(true);
+    }, () => {
+      setChecking(false);
+      setJoinError("Could not load the chamber. Check your connection and try again.");
     });
   };
 
@@ -254,14 +264,14 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
           setRosterClaims(data.competitorClaims || {});
           setPendingRoomData(data);
         }
-      });
+      }, console.error);
     }, 3000);
     return () => clearInterval(iv);
   }, [showNamePicker, pendingCode]);
 
   const handleRejoin = () => {
     const code = joinCode.trim().toUpperCase();
-    if (code.length < 4) { setJoinError("Enter a chamber code first"); return; }
+    if (!/^[A-Z0-9]{5}$/.test(code)) { setJoinError("Enter a valid chamber code first"); return; }
     setChecking(true); setJoinError("");
     getRoomOnce(code, (data) => {
       setChecking(false);
@@ -272,24 +282,37 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
       }
       setPendingCode(code);
       setShowPinEntry(true);
+    }, () => {
+      setChecking(false);
+      setJoinError("Could not load the chamber. Check your connection and try again.");
     });
   };
 
   const [landingPinLockUntil, setLandingPinLockUntil] = useState(0);
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const pinSubmitInFlightRef = useRef(false);
   const handlePinSubmit = async () => {
+    if (pinSubmitInFlightRef.current) return;
     if (Date.now() < landingPinLockUntil) { setJoinError(`Too many attempts. Wait ${Math.ceil((landingPinLockUntil - Date.now()) / 1000)}s.`); return; }
+    pinSubmitInFlightRef.current = true;
     setVerifyingPin(true);
-    const result = await verifyPoPin(pendingCode, pin);
-    setVerifyingPin(false);
+    let result;
+    try {
+      result = await verifyPoPin(pendingCode, pin);
+    } finally {
+      pinSubmitInFlightRef.current = false;
+      setVerifyingPin(false);
+    }
     if (result.ok) {
       getRoomOnce(pendingCode, (data) => {
-        if (data) onRejoinPO(pendingCode, { ...data, poPin: result.poPin });
+        if (data) onRejoinPO(pendingCode, data, result.poStudentId ?? null, result.leaseToken);
         else setJoinError("Chamber not found.");
-      });
+      }, () => setJoinError("PO access was granted, but the chamber could not be loaded. Try rejoining."));
       return;
     }
-    if (result.error === "locked") {
+    if (result.error === "po_already_active") {
+      setJoinError("A PO is currently active in this chamber.");
+    } else if (result.error === "locked") {
       setLandingPinLockUntil(Date.now() + result.lockedForSeconds * 1000);
       setJoinError(`Too many attempts. Locked for ${result.lockedForSeconds}s.`);
     } else {
@@ -310,14 +333,14 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
             <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", letterSpacing: "0.15em", textTransform: "uppercase" }}>or enter a chamber code</span>
             <div style={{ flex: 1, height: 1, background: "#3a3530" }} />
           </div>
-          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase()); setJoinError(""); setShowPinEntry(false); setShowNamePicker(false); }} onKeyDown={e => e.key === "Enter" && handleJoinAsCompetitor()} placeholder="CHAMBER CODE" aria-label="Chamber code" maxLength={6} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
+          <input value={joinCode} onChange={e => { setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 5)); setJoinError(""); setShowPinEntry(false); setShowNamePicker(false); }} onKeyDown={e => e.key === "Enter" && handleJoinAsCompetitor()} placeholder="CHAMBER CODE" aria-label="Chamber code" maxLength={5} style={{ ...IS, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.2em", padding: "14px" }} />
 
           {showPinEntry ? (
             <div style={{ background: "#2a2520", border: `1px solid ${GOLD}`, borderRadius: 10, padding: 20 }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Enter PO PIN to rejoin</div>
               <div style={{ display: "flex", gap: 8 }}>
-                <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handlePinSubmit()} placeholder="4-digit PIN" maxLength={4} style={{ ...IS, flex: 1, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.3em", padding: "12px" }} />
-                <button onClick={handlePinSubmit} disabled={pin.length !== 4 || verifyingPin} style={{ padding: "12px 20px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: pin.length === 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Rejoin"}</button>
+              <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} onKeyDown={e => e.key === "Enter" && pin.length >= 4 && handlePinSubmit()} placeholder="PO PIN" maxLength={6} style={{ ...IS, flex: 1, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 20, letterSpacing: "0.3em", padding: "12px" }} />
+              <button onClick={handlePinSubmit} disabled={pin.length < 4 || verifyingPin} style={{ padding: "12px 20px", background: pin.length >= 4 ? GOLD : "#3a3530", color: pin.length >= 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: pin.length >= 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Rejoin"}</button>
               </div>
               <button onClick={() => { setShowPinEntry(false); setPin(""); }} style={{ marginTop: 8, background: "none", border: "none", color: "#6b6358", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button>
             </div>
@@ -394,7 +417,7 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
 
 // ═══ SETUP PHASE ═══
 function SetupPhase({ onStart }) {
-  const [poName, setPoName] = useState("");
+  const [poName] = useState("");
   const [roomName, setRoomName] = useState("");
   const [nameInput, setNameInput] = useState("");
   const [showPasteBox, setShowPasteBox] = useState(true);
@@ -419,14 +442,16 @@ function SetupPhase({ onStart }) {
   const billRef = useRef(null);
   const isMobile = useIsMobile();
 
-  useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step]);
+  useEffect(() => { if (step === "seating" && !seatingDirty) setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => students[i] || null)); }, [step, seatingDirty, rows, cols, students]);
   useEffect(() => {
     if (step !== "seating") return;
-    const seatedIds = new Set(seatingSlots.filter(Boolean).map(s => s.id));
-    const backlog = students.filter(s => !seatedIds.has(s.id));
-    const ex = [...seatingSlots.filter(Boolean), ...backlog];
-    setSeatingSlots(Array.from({ length: rows * cols }, (_, i) => ex[i] || null));
-  }, [rows, cols]);
+    setSeatingSlots(current => {
+      const seatedIds = new Set(current.filter(Boolean).map(s => s.id));
+      const backlog = students.filter(s => !seatedIds.has(s.id));
+      const existing = [...current.filter(Boolean), ...backlog];
+      return Array.from({ length: rows * cols }, (_, i) => existing[i] || null);
+    });
+  }, [rows, cols, step, students]);
   useEffect(() => {
     if (gridManual) return;
     const n = students.length;
@@ -434,17 +459,17 @@ function SetupPhase({ onStart }) {
     const c = Math.max(4, Math.ceil(Math.sqrt(n)));
     const r = Math.ceil(n / c);
     if (c !== cols || r !== rows) { setCols(c); setRows(r); }
-  }, [students.length, gridManual]);
+  }, [students, gridManual, cols, rows]);
 
   const addStudent = () => { const n = sanitizeInput(nameInput.trim()); if (!n || students.some(s => s.name.toLowerCase() === n.toLowerCase())) return; if (containsProfanity(n)) { setNameInput(""); profanity.trigger(); return; } setStudents(p => [...p, { id: Date.now() + Math.random(), name: n, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: p.length }]); setNameInput(""); setSeatingDirty(false); nameRef.current?.focus(); };
   const handlePasteList = (text) => {
     const names = text.split(/\n/).map(l => sanitizeInput(l.trim())).filter(n => n && n.length > 0);
-    let added = 0, skipped = 0, profane = 0;
+    let added = 0, profane = 0;
     setStudents(prev => {
       let next = [...prev];
       for (const name of names) {
         if (containsProfanity(name)) { profane++; continue; }
-        if (next.some(s => s.name.toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        if (next.some(s => s.name.toLowerCase() === name.toLowerCase())) continue;
         next.push({ id: Date.now() + Math.random() + added, name, speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: next.length });
         added++;
       }
@@ -470,12 +495,12 @@ function SetupPhase({ onStart }) {
       forceNew = false;
     }
     const names = merged.map(l => sanitizeInput(l)).filter(n => n && n.length > 0);
-    let added = 0, skipped = 0, profane = 0;
+    let added = 0, profane = 0;
     setDocket(prev => {
       let next = [...prev];
       for (const name of names) {
         if (containsProfanity(name)) { profane++; continue; }
-        if (next.some(b => b.name.toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        if (next.some(b => b.name.toLowerCase() === name.toLowerCase())) continue;
         next.push({ id: Date.now() + Math.random() + added, name, status: null });
         added++;
       }
@@ -495,7 +520,6 @@ function SetupPhase({ onStart }) {
   const seatedIds = new Set(seatingSlots.filter(Boolean).map(s => s.id));
   const unseatedStudents = students.filter(s => !seatedIds.has(s.id));
   const hasSeating = seatingSlots.filter(Boolean).length >= 2 && unseatedStudents.length === 0;
-  const hasPO = true;
   const canStart = hasRoster && hasDocket && hasSeating;
   const check = (d) => <span style={{ fontSize: 10, marginLeft: 4, color: d ? "#5AE89A" : "#6b6358" }}>{d ? "✓" : "○"}</span>;
 
@@ -631,7 +655,7 @@ function SetupPhase({ onStart }) {
           </div>
           {docket.length === 0 && <div style={{ textAlign: "center", padding: "40px 20px", color: "#6b6358", fontStyle: "italic" }}>Add at least one bill.</div>}
         </>)}
-        <button disabled={!canStart} onClick={() => { if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map((s, i) => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+        <button disabled={!canStart} onClick={() => { if (containsProfanity(roomName)) { setRoomName(""); profanity.trigger(); return; } const finalStudents = seatingSlots.filter(Boolean).map(s => ({ ...s, questionOrder: questionPrec === "random" ? null : s.initialOrder })); if (questionPrec === "random") { const shuffled = shuffle(finalStudents.map((_, i) => i)); finalStudents.forEach((s, i) => { s.questionOrder = shuffled[i]; }); } onStart({ students: finalStudents, seatingSlots: seatingSlots.map(s => s ? { ...s, questionOrder: finalStudents.find(f => f.id === s.id)?.questionOrder ?? s.initialOrder } : null), cols, rows, docket, frontSide, roomCode, poName: sanitizeInput(poName.trim()), roomName: sanitizeInput(roomName.trim()), poPin, questionPrec }); }} style={{ width: "100%", marginTop: 28, padding: "16px 0", background: canStart ? `linear-gradient(135deg, ${GOLD}, #C49632)` : "#3a3530", color: canStart ? "#1a1714" : "#6b6358", border: "none", borderRadius: 8, fontFamily: "'DM Mono', monospace", fontSize: 15, fontWeight: 700, cursor: canStart ? "pointer" : "not-allowed", letterSpacing: "0.08em", textTransform: "uppercase" }}>
           {canStart ? "Create Chamber →" : `Complete setup (${[!hasRoster && "Roster", !hasSeating && "Seating", !hasDocket && "Docket"].filter(Boolean).join(", ")})`}
         </button>
         <div style={{ marginTop: 20, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#3a3530" }}>For support, please contact ckimbell@gmail.com</div>
@@ -697,7 +721,6 @@ function OrdersTab({ docket, history, students, currentBillIdx, roundComplete, p
     const now = new Date().toLocaleString();
     const speechHistory = history.filter(h => h.type === "speech");
     const questionHistory = history.filter(h => h.type === "question");
-    const billHistory = history.filter(h => h.type === "bill");
     const html = `<!DOCTYPE html><html><head><title>ParliPro Session Recap</title><style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body { font-family: Georgia, serif; color: #1a1a1a; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.5; }
@@ -1086,16 +1109,19 @@ function RosterTab({ students, onRename, onAdd }) {
 // object using the same names the JSX previously used directly — this was a
 // pure extraction, not a rewrite, so ActiveRound's render body is unchanged.
 export function useActiveRound(config, onCloseRoom) {
-  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, poPin, questionPrec: configQuestionPrec, poStudentId } = config;
+  const { students: initStudents, seatingSlots: initSlots, cols, frontSide, docket: initDocket, roomCode, poName, roomName, questionPrec: configQuestionPrec, poStudentId, leaseToken } = config;
 
   // Try restoring from session (for rejoin / refresh)
   const restored = (() => {
     try {
       const d = sessionStorage.getItem(`parlipro-po-${roomCode}`);
       if (d) return JSON.parse(d);
-    } catch(e) {}
+    } catch {}
     return null;
   })();
+  const restoredTimerValue = (restored?.timerElapsed || 0) + (restored?.timerRunning && restored?.timerUpdatedAt
+    ? Math.max(0, Math.floor((Date.now() - restored.timerUpdatedAt) / 1000))
+    : 0);
 
   const [students, setStudents] = useState(restored?.students || initStudents);
   const [seatingSlots, setSeatingSlots] = useState(restored?.seatingSlots || initSlots);
@@ -1112,9 +1138,9 @@ export function useActiveRound(config, onCloseRoom) {
   const [speechSequence, setSpeechSequence] = useState(restored?.speechSequence || []);
   const [timerKey, setTimerKey] = useState(0);
   const [isRestoredSpeech, setIsRestoredSpeech] = useState(!!restored?.activeSpeech);
-  const timerStateRef = useRef({ elapsed: restored?.timerElapsed || 0, running: restored?.timerRunning || false });
-  const [restoredTimerElapsed] = useState(restored?.timerElapsed || 0);
-  const [restoredTimerRunning] = useState(restored?.timerRunning || false);
+  const timerStateRef = useRef({ elapsed: restoredTimerValue, running: restored?.timerRunning || false });
+  const [restoredTimerElapsed, setRestoredTimerElapsed] = useState(restoredTimerValue);
+  const [restoredTimerRunning, setRestoredTimerRunning] = useState(restored?.timerRunning || false);
   const [docket, setDocket] = useState(restored?.docket || initDocket);
   const [currentBillIdx, setCurrentBillIdx] = useState(restored?.currentBillIdx || 0);
   const [showPQConfirm, setShowPQConfirm] = useState(false);
@@ -1147,6 +1173,7 @@ export function useActiveRound(config, onCloseRoom) {
   const [showPrec, setShowPrec] = useState(!isMobile);
   const [mobileShowQueue, setMobileShowQueue] = useState(true);
   const [showNextSpeechConfirm, setShowNextSpeechConfirm] = useState(false);
+  const [leaseLost, setLeaseLost] = useState(false);
   const [inQuestionPeriod, setInQuestionPeriod] = useState(restored?.inQuestionPeriod || false);
   const [lastSpeakerId, setLastSpeakerId] = useState(restored?.lastSpeakerId || null);
   const [questionBlockNum, setQuestionBlockNum] = useState(restored?.questionBlockNum || 0);
@@ -1169,7 +1196,10 @@ export function useActiveRound(config, onCloseRoom) {
     history: [...history], activeSpeech: activeSpeech ? { ...activeSpeech } : null,
     pendingSpeaker, affCount, negCount, speechSequence: [...speechSequence],
     docket: JSON.parse(JSON.stringify(docket)), currentBillIdx,
-    speechStartTime, inQuestionPeriod,
+    speechStartTime, inQuestionPeriod, lastSpeakerId, questionBlockNum, activeQuestioner,
+    savedSpeechSeekers: [...savedSpeechSeekers], docketAdopted,
+    manualSplits: JSON.parse(JSON.stringify(manualSplits)),
+    timerState: { ...timerStateRef.current },
   });
 
   const pushUndo = () => setUndoStack(p => [...p.slice(-20), captureSnapshot()]);
@@ -1185,6 +1215,14 @@ export function useActiveRound(config, onCloseRoom) {
     setNegCount(snap.negCount); setSpeechSequence(snap.speechSequence);
     setDocket(snap.docket); setCurrentBillIdx(snap.currentBillIdx);
     setSpeechStartTime(snap.speechStartTime); setInQuestionPeriod(snap.inQuestionPeriod || false);
+    setLastSpeakerId(snap.lastSpeakerId || null); setQuestionBlockNum(snap.questionBlockNum || 0);
+    setActiveQuestioner(snap.activeQuestioner || null); setSavedSpeechSeekers(snap.savedSpeechSeekers || []);
+    setDocketAdopted(!!snap.docketAdopted); docketAdoptedRef.current = !!snap.docketAdopted;
+    setManualSplits(snap.manualSplits || {});
+    timerStateRef.current = snap.timerState || { elapsed: 0, running: false };
+    setRestoredTimerElapsed(timerStateRef.current.elapsed || 0);
+    setRestoredTimerRunning(!!timerStateRef.current.running);
+    setIsRestoredSpeech(!!snap.activeSpeech);
     setTimerKey(k => k + 1);
   };
 
@@ -1206,18 +1244,23 @@ export function useActiveRound(config, onCloseRoom) {
       };
       writeRoomState(roomCode, state).catch(console.error);
     }, 150);
-  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, lastSpeakerId, manualSplits]);
+  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, poStudentId, lastSpeakerId, questionBlockNum, docketAdopted, manualSplits]);
 
   useEffect(() => { syncToFirebase(); return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current); }; }, [syncToFirebase]);
 
   // PO heartbeat — proves this session is active (every 5 seconds)
   useEffect(() => {
-    updateHeartbeat(roomCode).catch(console.error);
-    const iv = setInterval(() => {
-      updateHeartbeat(roomCode).catch(console.error);
-    }, 30000);
+    const renew = async () => {
+      await renewPOLease(roomCode, leaseToken);
+      setLeaseLost(false);
+    };
+    const handleRenewalError = (error) => {
+      console.error('PO lease renewal failed:', error.code, error.reason || 'unknown_reason', error);
+      if (error.code === 'po_lease_lost' || error.code === 'not_controller') setLeaseLost(true);
+    };
+    const iv = setInterval(() => { renew().catch(handleRenewalError); }, 30000);
     return () => clearInterval(iv);
-  }, [roomCode]);
+  }, [roomCode, leaseToken]);
 
   // Subscribe to competitor intents and splits
   useEffect(() => {
@@ -1233,7 +1276,7 @@ export function useActiveRound(config, onCloseRoom) {
         setDocketAdopted(true);
         if (data.docket) { setDocket(data.docket); if (data.docket.length > 0) setBillIntro({ index: 0, name: data.docket[0].name }); }
       }
-    });
+    }, console.error);
     return unsub;
   }, [roomCode]);
 
@@ -1249,14 +1292,14 @@ export function useActiveRound(config, onCloseRoom) {
   // Session persistence
   useEffect(() => {
     const save = {
-      students, seatingSlots, cols, frontSide, docket, roomCode, poName, roomName: roomName || "", poPin: poPin || "",
+      students, seatingSlots, cols, frontSide, docket, roomCode, poName, roomName: roomName || "",
       mode, seekers, speechCounter, questionCounter, history,
       activeSpeech, pendingSpeaker, affCount, negCount, speechSequence,
       currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec, lastSpeakerId, questionBlockNum,
-      timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running,
+      timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running, timerUpdatedAt: Date.now(),
       legislationPack, docketAdopted, poStudentId, manualSplits,
     };
-    try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
+    try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch {}
   });
 
   const toggleSeeker = (id) => { if (!docketAdopted) return; if (id === poStudentId) return; if (inQuestionPeriod && id === lastSpeakerId) return; if (activeSpeech && mode === "speech") return; if (mode === "speech" && inQuestionPeriod) return; if (mode === "question" && !inQuestionPeriod) return; setSeekers(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]); };
@@ -1376,11 +1419,15 @@ export function useActiveRound(config, onCloseRoom) {
     });
   };
 
-  const handleCloseRoom = () => {
-    clearPOHeartbeat(roomCode).catch(console.error);
-    deleteRoom(roomCode).catch(console.error);
-    try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch(e) {}
-    onCloseRoom();
+  const handleCloseRoom = async () => {
+    try {
+      await deleteRoom(roomCode, leaseToken);
+      try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch {}
+      onCloseRoom();
+    } catch (error) {
+      console.error('Failed to close chamber:', error);
+      alert('The chamber could not be closed. Check your connection and try again.');
+    }
   };
 
   const nextInfo = getNextSpeechInfo();
@@ -1402,7 +1449,7 @@ export function useActiveRound(config, onCloseRoom) {
     showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue, showNextSpeechConfirm, setShowNextSpeechConfirm,
     inQuestionPeriod, setInQuestionPeriod, lastSpeakerId, setLastSpeakerId, questionBlockNum, setQuestionBlockNum,
     questionBlockTimerKey, setQuestionBlockTimerKey, activeQuestioner, setActiveQuestioner,
-    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo,
+    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo, leaseLost,
     currentBill, roundComplete, getStudent, pushUndo, toggleSeeker, activeSeekers, sortedSeekers,
     getNextSpeechInfo, breakCycle, recognizeSpeaker, startSpeechFromChoice, endSpeech,
     recognizeQuestioner, removeSeeker, switchToSpeechMode, resolveBill, addBillLive,
@@ -1413,25 +1460,25 @@ export function useActiveRound(config, onCloseRoom) {
 
 // ═══ ACTIVE ROUND (PO) ═══
 function ActiveRound({ config, onCloseRoom, onReleasePO }) {
-  const { cols, frontSide, roomCode, poName, roomName, poPin, poStudentId } = config;
+  const { cols, frontSide, roomCode, poName, roomName, poStudentId } = config;
   const {
     students, seatingSlots, mode, setMode, seekers, setSeekers,
     speechCounter, questionCounter, history,
     activeTab, setActiveTab, activeSpeech, pendingSpeaker, setPendingSpeaker,
     speechSequence,
     timerKey, isRestoredSpeech, timerStateRef,
-    restoredTimerElapsed, restoredTimerRunning, docket, setDocket, currentBillIdx,
+    restoredTimerElapsed, restoredTimerRunning, docket, currentBillIdx,
     showPQConfirm, setShowPQConfirm, currentSpeechElapsed, docketBillInput, setDocketBillInput,
     docketInputRef, showCloseConfirm, setShowCloseConfirm,
     showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents,
     competitorSplits, manualSplits, setManualSplitForBill, docketProposals,
-    docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
+    docketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
     billIntro, setBillIntro, billResult, applyAdoptedDocket, dismissBillResult,
     competitorClaims, spectatorPresence, isMobile,
     showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue,
     inQuestionPeriod, lastSpeakerId, questionBlockNum,
     questionBlockTimerKey, activeQuestioner,
-    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo,
+    savedSpeechSeekers, setSavedSpeechSeekers, questionPrec, profanity, undoStack, undo, leaseLost,
     currentBill, roundComplete, getStudent, pushUndo, toggleSeeker, activeSeekers, sortedSeekers,
     breakCycle, recognizeSpeaker, startSpeechFromChoice, endSpeech,
     recognizeQuestioner, removeSeeker, switchToSpeechMode, resolveBill, addBillLive,
@@ -1439,7 +1486,9 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
   } = useActiveRound(config, onCloseRoom);
 
   return (
-    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
+    <div style={{ minHeight: "100vh", background: BG, color: "#E8E0D0", fontFamily: "'Newsreader', Georgia, serif", display: isMobile ? "block" : "flex", flexDirection: isMobile ? undefined : "column" }}>
+      {leaseLost && <div role="alertdialog" aria-modal="true" style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}><div style={{ maxWidth: 420, background: "#231f1b", border: "1px solid #C45A5A", borderRadius: 12, padding: 28, textAlign: "center" }}><div style={{ color: "#E8A0A0", fontFamily: "'DM Mono', monospace", fontWeight: 700, marginBottom: 12 }}>PO control was lost</div><p style={{ color: "#9B917F", fontSize: 14, lineHeight: 1.5 }}>Another session may have claimed this chamber, or this session was inactive too long. Reload and enter the PO PIN to regain control.</p><button onClick={() => window.location.reload()} style={{ marginTop: 16, padding: "10px 20px", background: GOLD, color: "#1a1714", border: "none", borderRadius: 7, fontWeight: 700, cursor: "pointer" }}>Reload</button></div></div>}
+      <header role="banner" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: isMobile ? "8px 12px" : "10px 20px", borderBottom: "1px solid #2a2520", flexWrap: "wrap", gap: 8, flexShrink: 0, position: isMobile ? "sticky" : undefined, top: isMobile ? 0 : undefined, zIndex: isMobile ? 10 : undefined, background: isMobile ? "#1a1714" : undefined }}>
         <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, minWidth: 0 }}>
           {!isMobile && <Brand size="small" />}
           <div style={{ borderLeft: isMobile ? "none" : "1px solid #3a3530", paddingLeft: isMobile ? 0 : 12, minWidth: 0 }}>
@@ -1484,14 +1533,10 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
               <span style={{ fontSize: 9, color: "#9B917F" }}>CHAMBER </span>
               <span style={{ fontSize: 13, color: GOLD, fontWeight: 500, letterSpacing: "0.1em" }}>{roomCode}</span>
               <button onClick={() => copyToClipboard(roomCode)} title="Copy chamber code" style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 11, padding: "0 2px" }}>📋</button>
-              <span style={{ fontSize: 9, color: "#6b6358", marginLeft: 4 }}>PIN </span>
-              <span style={{ fontSize: 11, color: "#9B917F", letterSpacing: "0.1em" }}>{poPin}</span>
           </div>}
           {isMobile && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#9B917F", display: "flex", alignItems: "center", gap: 4 }}>
             <span style={{ color: GOLD, fontWeight: 500, fontSize: 11, letterSpacing: "0.08em" }}>{roomCode}</span>
             <button onClick={() => copyToClipboard(roomCode)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 10, padding: 0 }}>📋</button>
-            <span style={{ color: "#6b6358", marginLeft: 4 }}>PIN </span>
-            <span style={{ letterSpacing: "0.08em" }}>{poPin}</span>
           </div>}
           {undoStack.length > 0 && <button onClick={undo} style={{ padding: "5px 10px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>↩ Undo</button>}
           <button onClick={() => setShowCloseConfirm(true)} style={{ padding: "5px 10px", background: "transparent", color: "#C45A5A", border: "1px solid #6B3A3A", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 10, cursor: "pointer" }}>Close</button>
@@ -1596,7 +1641,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
             </div>
             <div style={{ padding: isMobile ? "0 12px 12px" : "0 24px 20px", flexShrink: 0 }}>
               {pendingSpeaker && (() => { const ps = getStudent(pendingSpeaker); return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #3a3530", padding: isMobile ? "12px" : "16px 20px", display: "flex", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: "wrap" }}><div><div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600 }}>{ps?.name}</div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 3, textTransform: "uppercase" }}>First speech — select type</div></div><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{[{ key: "author", label: "Authorship", bg: "#2D3B4A" }, { key: "sponsor", label: "Sponsorship", bg: "#3B2D4A" }].map(o => (<button key={o.key} onClick={() => startSpeechFromChoice(pendingSpeaker, o.key, o.label)} style={{ padding: isMobile ? "8px 12px" : "10px 16px", background: o.bg, color: "#E8E0D0", border: "1px solid #3a3530", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 11 : 12, fontWeight: 600, cursor: "pointer" }}>{o.label}</button>))}</div><button onClick={() => { pushUndo(); setPendingSpeaker(null); }} style={{ background: "none", border: "1px solid #3a3530", color: "#6b6358", borderRadius: 6, padding: "6px 14px", fontFamily: "'DM Mono', monospace", fontSize: 11, cursor: "pointer" }}>Cancel</button></div>); })()}
-              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} isRestore={isRestoredSpeech} savedElapsed={restoredTimerElapsed} savedRunning={restoredTimerRunning} onTick={e => { currentSpeechElapsed.current = e; }} onStateChange={(e, r) => { timerStateRef.current = { elapsed: e, running: r }; try { const d = sessionStorage.getItem(`parlipro-po-${roomCode}`); if (d) { const s = JSON.parse(d); s.timerElapsed = e; s.timerRunning = r; sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(s)); } } catch(err) {} }} /><button aria-label="End speech and start questions" onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Questions</button></div>); })()}
+              {activeSpeech && !pendingSpeaker && (() => { const sp = getStudent(activeSpeech.studentId), col = COLORS[(sp?.initialOrder||0) % COLORS.length]; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #5AE89A44", padding: isMobile ? "12px" : "14px 20px", display: "flex", alignItems: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}><div style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 12 }}><div style={{ background: `linear-gradient(135deg, ${col}cc, ${col}99)`, borderRadius: 8, padding: isMobile ? "6px 12px" : "8px 16px", border: "2px solid #5AE89A" }}><div style={{ fontSize: isMobile ? 14 : 17, fontWeight: 600 }}>{sp?.name}</div></div><div><div style={{ fontFamily: "'DM Mono', monospace", fontSize: isMobile ? 10 : 12, color: GOLD, textTransform: "uppercase", fontWeight: 600 }}>{activeSpeech.side}</div><div style={{ fontSize: 10, fontFamily: "'DM Mono', monospace", color: "#6b6358", marginTop: 2 }}>Speech #{activeSpeech.speechNumber}</div></div></div><SpeechTimer key={timerKey} isRestore={isRestoredSpeech} savedElapsed={restoredTimerElapsed} savedRunning={restoredTimerRunning} onTick={e => { currentSpeechElapsed.current = e; }} onStateChange={(e, r) => { timerStateRef.current = { elapsed: e, running: r, updatedAt: Date.now() }; try { const d = sessionStorage.getItem(`parlipro-po-${roomCode}`); if (d) { const s = JSON.parse(d); s.timerElapsed = e; s.timerRunning = r; s.timerUpdatedAt = Date.now(); sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(s)); } } catch(err) {} }} /><button aria-label="End speech and start questions" onClick={endSpeech} style={{ padding: isMobile ? "8px 14px" : "8px 18px", background: "linear-gradient(135deg, #4A2D2D, #3A1E1E)", color: "#E8A0A0", border: "1px solid #6B3A3A", borderRadius: 7, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 600, cursor: "pointer", textTransform: "uppercase", marginLeft: isMobile ? 0 : "auto" }}>End Speech → Questions</button></div>); })()}
               {!activeSpeech && !pendingSpeaker && mode === "question" && inQuestionPeriod && (() => { const lastSpeech = history.find(h => h.type === "speech"); const totalBlocks = lastSpeech?.questionBlocks || (/authorship|sponsorship|1st negative/i.test(lastSpeech?.side || "") ? 4 : 2); const currentBlock = Math.min(questionBlockNum, totalBlocks); const blocksExhausted = currentBlock >= totalBlocks; return (<div style={{ background: "#1e1b17", borderRadius: 10, border: "1px solid #7BA3BF44", padding: isMobile ? "12px" : "14px 20px", marginBottom: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: activeQuestioner ? 10 : 0 }}>
                   <div>
@@ -1719,11 +1764,9 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   const [showNamePicker, setShowNamePicker] = useState(false);
   const [showSwitchPicker, setShowSwitchPicker] = useState(false);
   const [showPrec, setShowPrec] = useState(!isMobile);
-  const [expandedSplitBill, setExpandedSplitBill] = useState(null);
   const [nominationBills, setNominationBills] = useState([]);
   const [showNominate, setShowNominate] = useState(false);
   const [nominateDragIdx, setNominateDragIdx] = useState(null);
-  const [adoptConfirm, setAdoptConfirm] = useState(null);
   const [pin, setPin] = useState("");
   const [pinError, setPinError] = useState("");
   const isCompetitor = !!competitorId;
@@ -1733,7 +1776,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     const unsub = subscribeToRoom(roomCode, (data) => {
       if (data && data.students) { setState(data); setDisconnected(false); }
       else setDisconnected(true);
-    });
+    }, () => setDisconnected(true));
     return unsub;
   }, [roomCode]);
 
@@ -1785,7 +1828,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       setWantSpeech(false);
     }
     prevSpeechRef.current = currentSpeaker;
-  }, [state?.activeSpeech?.studentId]);
+  }, [state]);
 
 
 
@@ -1797,19 +1840,29 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   // PO claim
   const [pinLockUntil, setPinLockUntil] = useState(0);
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const pinSubmitInFlightRef = useRef(false);
   const handleClaimPO = async () => {
+    if (pinSubmitInFlightRef.current) return;
     if (!state) return;
     if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
     if (state.poHeartbeat && (Date.now() - (state.poHeartbeat.ts || state.poHeartbeat)) < STALE_MS) {
       setPinError("A PO is currently active in this room.");
       return;
     }
+    pinSubmitInFlightRef.current = true;
     setVerifyingPin(true);
-    const result = await verifyPoPin(roomCode, pin);
-    setVerifyingPin(false);
+    let result;
+    try {
+      result = await verifyPoPin(roomCode, pin, competitorId || null);
+    } finally {
+      pinSubmitInFlightRef.current = false;
+      setVerifyingPin(false);
+    }
     if (result.ok) {
-      if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error);
-      onClaimPO(roomCode, { ...state, poPin: result.poPin }, competitorId);
+      onClaimPO(roomCode, state, result.poStudentId ?? null, result.leaseToken);
+    } else if (result.error === "po_already_active") {
+      setPinError("A PO is currently active in this chamber.");
+      setPin("");
     } else if (result.error === "locked") {
       setPinLockUntil(Date.now() + result.lockedForSeconds * 1000);
       setPinError(`Too many attempts. Locked for ${result.lockedForSeconds}s.`);
@@ -1852,7 +1905,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, manualSplits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], history = [], activeSpeech = null, currentBillIdx = 0, questionPrec = "reverse", competitorIntents = {}, splits = {}, manualSplits = {}, affCount = 0, negCount = 0, speechSequence = [] } = state;
+  const statePoStudentId = getActivePoStudentId(state);
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
@@ -1860,7 +1914,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   const displayName = roomName || `Chamber ${roomCode}`;
   const sortedSeekers = sortPrec((seekers || []).map(id => getStudent(id)).filter(Boolean), mode, questionPrec);
   const activeSeekers = sortedSeekers;
-  const hasSpeech = !!activeSpeech;
 
   // Figure out what the next speech would be
   const getNextSpeechLabel = () => {
@@ -1885,23 +1938,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       else if (s === "both") { aff++; neg++; }
     });
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
-  };
-  const getManualTotals = (billId) => {
-    const manual = manualSplits?.[fbSafe(billId)];
-    return manual && ((manual.aff || 0) > 0 || (manual.neg || 0) > 0) ? manual : null;
-  };
-  const getSplitNames = (billId) => {
-    const affNames = [], negNames = [];
-    Object.entries(splits).forEach(([safeId, studentSplits]) => {
-      if (statePoStudentId && safeId === fbSafe(statePoStudentId)) return;
-      const side = studentSplits[fbSafe(billId)];
-      const student = students.find(s => fbSafe(s.id) === safeId);
-      const name = student ? student.name : safeId;
-      if (side === "aff") affNames.push(name);
-      else if (side === "neg") negNames.push(name);
-      else if (side === "both") { affNames.push(name); negNames.push(name); }
-    });
-    return { aff: affNames.sort((a, b) => a.localeCompare(b)), neg: negNames.sort((a, b) => a.localeCompare(b)) };
   };
 
   return (
@@ -1940,8 +1976,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                 <button onClick={() => setShowPinEntry(true)} style={{ padding: "3px 8px", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, cursor: "pointer" }}>Claim PO</button>
               ) : (
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))} onKeyDown={e => e.key === "Enter" && pin.length === 4 && handleClaimPO()} placeholder="PIN" maxLength={4} style={{ width: 56, background: "#1e1b17", color: "#E8E0D0", border: pinError ? "1px solid #C45A5A" : "1px solid #3a3530", borderRadius: 4, padding: "3px 6px", fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "center", letterSpacing: "0.15em" }} />
-                  <button onClick={handleClaimPO} disabled={pin.length !== 4 || verifyingPin} style={{ padding: "3px 8px", background: pin.length === 4 ? GOLD : "#3a3530", color: pin.length === 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length === 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Go"}</button>
+              <input value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} onKeyDown={e => e.key === "Enter" && pin.length >= 4 && handleClaimPO()} placeholder="PIN" maxLength={6} style={{ width: 76, background: "#1e1b17", color: "#E8E0D0", border: pinError ? "1px solid #C45A5A" : "1px solid #3a3530", borderRadius: 4, padding: "3px 6px", fontFamily: "'DM Mono', monospace", fontSize: 11, textAlign: "center", letterSpacing: "0.15em" }} />
+              <button onClick={handleClaimPO} disabled={pin.length < 4 || verifyingPin} style={{ padding: "3px 8px", background: pin.length >= 4 ? GOLD : "#3a3530", color: pin.length >= 4 ? "#1a1714" : "#6b6358", border: "none", borderRadius: 4, fontFamily: "'DM Mono', monospace", fontSize: 9, fontWeight: 600, cursor: pin.length >= 4 && !verifyingPin ? "pointer" : "not-allowed" }}>{verifyingPin ? "..." : "Go"}</button>
                   <button onClick={() => { setShowPinEntry(false); setPin(""); setPinError(""); }} style={{ background: "none", border: "none", color: "#6b6358", fontSize: 12, cursor: "pointer" }}>×</button>
                 </div>
               )}
@@ -2341,7 +2377,6 @@ export default function App() {
   const [spectatorCode, setSpectatorCode] = useState(null);
   const [competitorInfo, setCompetitorInfo] = useState(null);
   const [createdRoomPin, setCreatedRoomPin] = useState(null);
-  const isMobile = useIsMobile();
 
   // Global animations
   useEffect(() => {
@@ -2354,53 +2389,62 @@ export default function App() {
 
   // Restore PO session on refresh
   useEffect(() => {
-    // Clean up any rooms older than 24 hours
-    cleanupStaleRooms();
-
-    try {
-      const saved = sessionStorage.getItem('parlipro-session');
-      if (saved) {
-        const { view: v, roomCode, spectatorCode: sc, competitorInfo: ci, createdRoomPin: pin } = JSON.parse(saved);
+    let cancelled = false;
+    const restore = async () => {
+      try {
+        const saved = sessionStorage.getItem('parlipro-session');
+        if (!saved) return;
+        const { view: v, roomCode, spectatorCode: sc, competitorInfo: ci } = JSON.parse(saved);
         if (v === "active" && roomCode) {
           const poData = sessionStorage.getItem(`parlipro-po-${roomCode}`);
           if (poData) {
-            const parsed = JSON.parse(poData);
-            setConfig(parsed);
+            const restoredConfig = JSON.parse(poData);
+            await renewPOLease(roomCode, restoredConfig.leaseToken);
+            if (cancelled) return;
+            setConfig(restoredConfig);
             setView("active");
             return;
           }
         }
         if (v === "spectator" && sc) {
           setSpectatorCode(sc);
-          if (pin) setCreatedRoomPin(pin);
           setView("spectator");
           return;
         }
         if (v === "competitor" && ci) {
           setCompetitorInfo(ci);
           setView("competitor");
-          return;
         }
+      } catch (error) {
+        console.error('Could not restore the previous session:', error);
+        try { sessionStorage.removeItem('parlipro-session'); } catch(e) {}
       }
-    } catch(e) {}
+    };
+    restore();
+    return () => { cancelled = true; };
   }, []);
 
   // Save current view to sessionStorage
   useEffect(() => {
     try {
       sessionStorage.setItem('parlipro-session', JSON.stringify({
-        view, roomCode: config?.roomCode || null, spectatorCode, competitorInfo, createdRoomPin
+        view, roomCode: config?.roomCode || null, spectatorCode, competitorInfo
       }));
     } catch(e) {}
-  }, [view, config, spectatorCode, createdRoomPin]);
+  }, [view, config, spectatorCode, competitorInfo]);
 
   const handleCloseRoom = () => { setView("landing"); setConfig(null); };
-  const handleReleasePO = (roomCode) => {
+  const handleReleasePO = async (roomCode) => {
     // Get PO's student info before clearing
     const poId = config?.poStudentId;
     const poStudent = poId ? (config?.students || []).find(s => String(s.id) === String(poId)) : null;
-    // Clear poStudentId and poHeartbeat in Firebase
-    writeRoomState(roomCode, { poStudentId: null, poHeartbeat: null }).catch(console.error);
+    try {
+      await releasePOLease(roomCode, config?.leaseToken);
+    } catch (error) {
+      console.error('Failed to release PO control:', error);
+      alert('PO control could not be released. Check your connection and try again.');
+      return;
+    }
     try { sessionStorage.removeItem(`parlipro-po-${roomCode}`); sessionStorage.removeItem('parlipro-session'); } catch(e) {}
     setConfig(null);
     if (poStudent) {
@@ -2414,7 +2458,7 @@ export default function App() {
     }
   };
 
-  const handleRejoinPO = (roomCode, firebaseData, claimingStudentId) => {
+  const handleRejoinPO = (roomCode, firebaseData, claimingStudentId, leaseToken) => {
     // Rebuild config from Firebase data
     const cfg = {
       students: (firebaseData.students || []).map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[], initialOrder: s.initialOrder||0 })),
@@ -2426,10 +2470,10 @@ export default function App() {
       roomCode: firebaseData.roomCode || roomCode,
       poName: firebaseData.poName || "",
       roomName: firebaseData.roomName || "",
-      poPin: firebaseData.poPin || "",
-      poStudentId: claimingStudentId || firebaseData.poStudentId || null,
+      poStudentId: claimingStudentId ?? null,
       legislationPack: firebaseData.legislationPack || firebaseData.docket || [],
       docketAdopted: firebaseData.docketAdopted || false,
+      leaseToken,
     };
     // Also save to session so ActiveRound can restore internal state
     try {
@@ -2464,12 +2508,15 @@ export default function App() {
       currentBillIdx: 0, speechStartTime: null, affCount: 0, negCount: 0, speechSequence: [],
       inQuestionPeriod: false, questionPrec: cfg.questionPrec, poStudentId: null, roundComplete: false,
     };
-    // poPin is never written to the public room node — see setRoomSecret/database.rules.json
-    Promise.all([createRoom(cfg.roomCode, initialState), setRoomSecret(cfg.roomCode, cfg.poPin)]).then(() => {
+    // Creation and secret storage happen together in the authenticated server endpoint.
+    createRoom(cfg.roomCode, initialState, cfg.poPin).then(() => {
       setCreatedRoomPin(cfg.poPin);
       setSpectatorCode(cfg.roomCode);
       setView("spectator");
-    }).catch(err => { console.error("Failed to create chamber:", err); });
+    }).catch(err => {
+      console.error("Failed to create chamber:", err);
+      alert(err.code === 'room_code_taken' ? 'That chamber code was just taken. Return home and create another chamber.' : 'The chamber could not be created. Check your connection and try again.');
+    });
   };
 
   if (view === "landing") return <LandingPage onCreateRoom={() => setView("setup")} onJoinRoom={(code) => { setSpectatorCode(code); setView("spectator"); }} onJoinCompetitor={(code, studentId, studentName) => { setCompetitorInfo({ roomCode: code, studentId, studentName }); setView("competitor"); }} onRejoinPO={handleRejoinPO} />;

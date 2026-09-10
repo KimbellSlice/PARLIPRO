@@ -27,7 +27,8 @@ export default [
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'react/prop-types': 'off',
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'react/no-unescaped-entities': 'off',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrors: 'none' }],
       // Empty catch(e) {} blocks are a deliberate pattern throughout this
       // codebase for best-effort sessionStorage/localStorage writes.
       'no-empty': ['error', { allowEmptyCatch: true }],
@@ -35,7 +36,7 @@ export default [
     settings: { react: { version: 'detect' } },
   },
   {
-    files: ['api/**/*.js'],
+    files: ['api/**/*.js', 'server/**/*.js'],
     languageOptions: { globals: globals.node },
   },
 ]
