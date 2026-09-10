@@ -2,10 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 vi.mock('../firebase.js', () => ({
-  fbSafe: (id) => String(id).replace(/\./g, '_'),
+  fbSafe: (id) => String(id).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_'),
   STALE_MS: 45000,
   writeRoomState: vi.fn(),
   createRoom: vi.fn(),
+  claimPOLease: vi.fn(),
+  renewPOLease: vi.fn(() => Promise.resolve()),
+  releasePOLease: vi.fn(() => Promise.resolve()),
   setRoomSecret: vi.fn(),
   subscribeToRoom: vi.fn(),
   checkRoomExists: vi.fn(),

@@ -1,73 +1,90 @@
 {
   "rules": {
     "rooms": {
+      ".indexOn": ["updatedAt"],
       "$roomCode": {
-        // Anyone authenticated can read room data
         ".read": "auth != null",
+        "access": { ".write": false },
 
-        // Room-level writes (PO state sync, room creation) — require auth
-        ".write": "auth != null",
+        "students": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "newData.hasChildren() && newData.numChildren() <= 100",
+          "$student": { ".validate": "newData.hasChildren(['id', 'name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150" }
+        },
+        "seatingSlots": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "cols": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "frontSide": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "docket": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
+        "legislationPack": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
+        "poName": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isString() && newData.val().length <= 150" },
+        "roomName": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isString() && newData.val().length <= 150" },
+        "mode": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.val() === 'speech' || newData.val() === 'question'" },
+        "seekers": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
+        "speechCounter": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "questionCounter": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "history": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 2000" },
+        "activeSpeech": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "currentBillIdx": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "speechStartTime": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "affCount": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "negCount": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "speechSequence": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "inQuestionPeriod": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "questionPrec": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "poStudentId": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "roundComplete": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "updatedAt": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "speechElapsed": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "lastSpeakerId": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "questionBlockNum": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "docketAdopted": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
+        "manualSplits": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
 
-        // Competitor claims: only the claim owner (by uid) can write their key
+        "poHeartbeat": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('ts').isNumber())"
+        },
         "competitorClaims": {
           "$studentKey": {
-            ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid || data.child('claimedAt').val() < (now - 45000))",
-            ".validate": "newData.hasChild('claimedAt') && newData.hasChild('uid') && newData.child('uid').val() === auth.uid"
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || data.child('uid').val() === auth.uid || (data.child('claimedAt').isNumber() && data.child('claimedAt').val() < now - 45000 && newData.child('uid').val() === auth.uid))",
+            ".validate": "newData.hasChildren(['claimedAt', 'uid']) && newData.child('uid').val() === auth.uid && newData.child('claimedAt').isNumber() && newData.child('claimedAt').val() <= now + 10000 && newData.child('claimedAt').val() >= now - 10000"
           }
         },
-
-        // Splits: only the competitor who claimed the name can write their splits
         "splits": {
           "$studentKey": {
-            ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid"
+            "$billKey": {
+              ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid",
+              ".validate": "!newData.exists() || newData.val() === 'aff' || newData.val() === 'neg' || newData.val() === 'both'"
+            }
           }
         },
-
-        // Competitor intents: only the competitor who claimed the name can write
         "competitorIntents": {
           "$studentKey": {
-            ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid"
+            "speech": {
+              ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid",
+              ".validate": "newData.isBoolean()"
+            }
           }
         },
-
-        // Spectator presence: only the owner (matched by auth uid) can write
+        "docketProposals": {
+          "$studentKey": {
+            ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid",
+            ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150 && newData.child('submittedAt').isNumber() && newData.child('bills').hasChildren() && newData.child('bills').numChildren() <= 100)"
+          }
+        },
         "spectatorPresence": {
           "$specId": {
-            ".write": "auth != null && (!data.exists() || data.child('uid').val() === auth.uid)",
-            ".validate": "newData.hasChild('uid') && newData.child('uid').val() === auth.uid"
+            ".write": "auth != null && ((!data.exists() && newData.child('uid').val() === auth.uid) || data.child('uid').val() === auth.uid)",
+            ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('heartbeat').isNumber() && newData.child('heartbeat').val() <= now + 10000 && newData.child('heartbeat').val() >= now - 10000)"
           }
         },
-
-        // PO heartbeat: anyone authenticated can write (PIN check happens client-side)
-        "poHeartbeat": {
-          ".write": "auth != null"
-        }
+        "$other": { ".write": false }
       }
     },
-
-    // PO PINs live here instead of on rooms/{code} because Realtime Database
-    // read rules cascade downward — rooms/$roomCode above grants ".read" to
-    // any authenticated client, and a deeper ".read": false under that same
-    // path would NOT override it. roomSecrets is a separate top-level node
-    // (a sibling of rooms, not a descendant), so the broad grant above never
-    // reaches it — this is the only way to actually keep a value hidden here.
-    //
-    // ".read": false — no client can ever read this, under any condition.
-    // Verification happens only in api/verify-po-pin.js via the Admin SDK,
-    // which bypasses these rules entirely and is the sole place the PIN is
-    // ever compared.
-    //
-    // ".write" only allows creating the node once, at room setup. The verify
-    // function's rate-limit bookkeeping (pinAttempts) is written by the Admin
-    // SDK, which isn't subject to this rule either.
     "roomSecrets": {
-      "$roomCode": {
-        ".read": false,
-        ".write": "auth != null && !data.exists()"
-      }
+      ".indexOn": ["reservedAt"],
+      "$roomCode": { ".read": false, ".write": false }
     },
-
-    // Default: deny all access outside rooms/ and roomSecrets/
     ".read": false,
     ".write": false
   }

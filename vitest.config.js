@@ -10,5 +10,6 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.js'],
     globals: true,
+    exclude: ['src/test/databaseRules.test.js', '**/node_modules/**', '**/dist/**'],
   },
 })

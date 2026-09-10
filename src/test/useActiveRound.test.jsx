@@ -2,10 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 vi.mock('../firebase.js', () => ({
-  fbSafe: (id) => String(id).replace(/\./g, '_'),
+  fbSafe: (id) => String(id).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_'),
   STALE_MS: 45000,
   writeRoomState: vi.fn(() => Promise.resolve()),
   createRoom: vi.fn(() => Promise.resolve()),
+  claimPOLease: vi.fn(() => Promise.resolve()),
+  renewPOLease: vi.fn(() => Promise.resolve()),
+  releasePOLease: vi.fn(() => Promise.resolve()),
   setRoomSecret: vi.fn(() => Promise.resolve()),
   subscribeToRoom: vi.fn(() => () => {}),
   checkRoomExists: vi.fn(),
@@ -97,5 +100,39 @@ describe('useActiveRound', () => {
 
     act(() => result.current.undo());
     expect(result.current.pendingSpeaker).toBeNull();
+  });
+
+  it('undoing a question restores question-period state as one snapshot', () => {
+    sessionStorage.clear();
+    const { result } = renderHook(() => useActiveRound(makeConfig(), vi.fn()));
+
+    act(() => result.current.recognizeSpeaker(1));
+    act(() => result.current.startSpeechFromChoice(1, 'author', 'Authorship'));
+    act(() => result.current.endSpeech());
+    act(() => result.current.recognizeQuestioner(2));
+    expect(result.current.questionBlockNum).toBe(1);
+    expect(result.current.activeQuestioner).toBe('Bob');
+
+    act(() => result.current.undo());
+    expect(result.current.questionBlockNum).toBe(0);
+    expect(result.current.activeQuestioner).toBeNull();
+    expect(result.current.questionCounter).toBe(0);
+    expect(result.current.history[0]).toMatchObject({ type: 'speech' });
+  });
+
+  it('undoing the end of a speech restores its timer state', () => {
+    sessionStorage.clear();
+    const { result } = renderHook(() => useActiveRound(makeConfig(), vi.fn()));
+
+    act(() => result.current.recognizeSpeaker(1));
+    act(() => result.current.startSpeechFromChoice(1, 'author', 'Authorship'));
+    act(() => { result.current.timerStateRef.current = { elapsed: 42, running: true }; });
+    act(() => result.current.endSpeech());
+    act(() => result.current.undo());
+
+    expect(result.current.activeSpeech).toMatchObject({ studentId: 1 });
+    expect(result.current.restoredTimerElapsed).toBe(42);
+    expect(result.current.restoredTimerRunning).toBe(true);
+    expect(result.current.lastSpeakerId).toBeNull();
   });
 });

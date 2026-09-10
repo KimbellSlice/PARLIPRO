@@ -4,10 +4,13 @@ import { describe, it, expect, vi } from 'vitest';
 // and signInAnonymously() against the real project. Mock it so importing
 // pure logic out of App.jsx doesn't make real network/auth calls.
 vi.mock('../firebase.js', () => ({
-  fbSafe: (id) => String(id).replace(/\./g, '_'),
+  fbSafe: (id) => String(id).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_'),
   STALE_MS: 45000,
   writeRoomState: vi.fn(),
   createRoom: vi.fn(),
+  claimPOLease: vi.fn(),
+  renewPOLease: vi.fn(() => Promise.resolve()),
+  releasePOLease: vi.fn(() => Promise.resolve()),
   setRoomSecret: vi.fn(),
   subscribeToRoom: vi.fn(),
   checkRoomExists: vi.fn(),
@@ -140,5 +143,9 @@ describe('containsProfanity', () => {
 describe('fbSafe', () => {
   it('replaces dots with underscores', () => {
     expect(fbSafe('1.23.4')).toBe('1_23_4');
+  });
+
+  it('replaces every character forbidden in a Firebase key', () => {
+    expect(fbSafe('a.b#c$d[e]/f')).toBe('a_b_c_d_e__f');
   });
 });

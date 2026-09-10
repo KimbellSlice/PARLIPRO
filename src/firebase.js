@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getDatabase, ref, set, update, onValue, remove, onDisconnect, runTransaction } from 'firebase/database';
+import { getDatabase, ref, set, update, onValue, onDisconnect, runTransaction, get, serverTimestamp } from 'firebase/database';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
 
 // Replace with your real Firebase config
@@ -20,14 +20,28 @@ const auth = getAuth(app);
 
 // ═══ ANONYMOUS AUTH ═══
 let _authUid = null;
-const _authReady = new Promise((resolve) => {
+const _authReady = new Promise((resolve, reject) => {
+  let settled = false;
+  const finish = (callback, value) => {
+    if (settled) return;
+    settled = true;
+    callback(value);
+  };
+  const timeout = setTimeout(() => finish(reject, new Error('Authentication timed out')), 15000);
   onAuthStateChanged(auth, (user) => {
     if (user) {
       _authUid = user.uid;
-      resolve(user.uid);
+      clearTimeout(timeout);
+      finish(resolve, user.uid);
     } else {
-      signInAnonymously(auth).catch(console.error);
+      signInAnonymously(auth).catch((error) => {
+        clearTimeout(timeout);
+        finish(reject, error);
+      });
     }
+  }, (error) => {
+    clearTimeout(timeout);
+    finish(reject, error);
   });
 });
 
@@ -37,64 +51,80 @@ export function getAuthUid() { return _authReady; }
 // Get the current auth UID synchronously (may be null if not yet ready)
 export function getAuthUidSync() { return _authUid; }
 
+export async function authenticatedPost(path, body) {
+  await getAuthUid();
+  const token = await auth.currentUser.getIdToken();
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify(body),
+  });
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`Server returned an invalid response (${response.status})`);
+  }
+  if (!response.ok && !['locked', 'incorrect_pin', 'po_already_active'].includes(result.error)) {
+    const error = new Error(result.error || `Request failed (${response.status})`);
+    error.code = result.error;
+    throw error;
+  }
+  return result;
+}
+
 // Staleness threshold — presence is considered stale after this many ms
 export const STALE_MS = 45000;
 
 export function writeRoomState(roomCode, state) {
   return update(ref(db, `rooms/${roomCode}`), {
     ...state,
-    updatedAt: Date.now()
+    updatedAt: serverTimestamp()
   });
 }
 
-// Create a new room (uses set to establish the full node)
-export function createRoom(roomCode, state) {
-  return set(ref(db, `rooms/${roomCode}`), {
-    ...state,
-    updatedAt: Date.now()
-  });
+// Create a new room through the trusted server so the room and PIN hash are
+// reserved together and ownership is bound to the authenticated caller.
+export function createRoom(roomCode, state, pin) {
+  return authenticatedPost('/api/create-room', { roomCode, state, pin });
 }
 
-// ═══ ROOM SECRETS (never readable by clients — see database.rules.json) ═══
-// The PO PIN lives here instead of on the public rooms/{code} node, since
-// Realtime Database read rules cascade downward: once a node is readable,
-// its children can't be selectively hidden. Verification happens server-side
-// via api/verify-po-pin.js using the Admin SDK, which bypasses these rules.
+// ═══ PO CONTROL LEASES ═══
 
-export function setRoomSecret(roomCode, poPin) {
-  return set(ref(db, `roomSecrets/${roomCode}`), {
-    poPin,
-    createdAt: Date.now()
-  });
+export function claimPOLease(roomCode, pin) {
+  return authenticatedPost('/api/claim-po', { roomCode, pin });
 }
 
-export function subscribeToRoom(roomCode, callback) {
+export function renewPOLease(roomCode) {
+  return authenticatedPost('/api/renew-po-lease', { roomCode });
+}
+
+export function releasePOLease(roomCode) {
+  return authenticatedPost('/api/release-po', { roomCode });
+}
+
+export function subscribeToRoom(roomCode, callback, onError = console.error) {
   const roomRef = ref(db, `rooms/${roomCode}`);
   const unsub = onValue(roomRef, (snapshot) => {
     callback(snapshot.val());
-  });
+  }, onError);
   return unsub;
 }
 
-export function checkRoomExists(roomCode, callback) {
-  const roomRef = ref(db, `rooms/${roomCode}`);
-  onValue(roomRef, (snapshot) => {
-    callback(snapshot.exists());
-  }, { onlyOnce: true });
+export function checkRoomExists(roomCode, callback, onError) {
+  return get(ref(db, `rooms/${roomCode}`))
+    .then((snapshot) => callback(snapshot.exists()))
+    .catch((error) => { if (onError) onError(error); else throw error; });
 }
 
-export function getRoomOnce(roomCode, callback) {
-  const roomRef = ref(db, `rooms/${roomCode}`);
-  onValue(roomRef, (snapshot) => {
-    callback(snapshot.val());
-  }, { onlyOnce: true });
+export function getRoomOnce(roomCode, callback, onError) {
+  return get(ref(db, `rooms/${roomCode}`))
+    .then((snapshot) => callback(snapshot.val()))
+    .catch((error) => { if (onError) onError(error); else throw error; });
 }
 
 export function deleteRoom(roomCode) {
-  return Promise.all([
-    remove(ref(db, `rooms/${roomCode}`)),
-    remove(ref(db, `roomSecrets/${roomCode}`))
-  ]);
+  return authenticatedPost('/api/close-room', { roomCode });
 }
 
 // ═══ INCREMENTAL STATE UPDATES ═══
@@ -105,11 +135,11 @@ export function updateRoomElapsed(roomCode, elapsed) {
 }
 
 export function updateRoomField(roomCode, field, value) {
-  return update(ref(db, `rooms/${roomCode}`), { [field]: value, updatedAt: Date.now() });
+  return update(ref(db, `rooms/${roomCode}`), { [field]: value, updatedAt: serverTimestamp() });
 }
 
 export function updateRoomFields(roomCode, fields) {
-  return update(ref(db, `rooms/${roomCode}`), { ...fields, updatedAt: Date.now() });
+  return update(ref(db, `rooms/${roomCode}`), { ...fields, updatedAt: serverTimestamp() });
 }
 
 // ═══ PO PRESENCE (with onDisconnect) ═══
@@ -117,7 +147,7 @@ export function updateRoomFields(roomCode, fields) {
 export function updateHeartbeat(roomCode) {
   const hbRef = ref(db, `rooms/${roomCode}/poHeartbeat`);
   onDisconnect(hbRef).set(null);
-  return set(hbRef, { ts: Date.now(), uid: _authUid });
+  return set(hbRef, { ts: serverTimestamp(), uid: _authUid });
 }
 
 export function clearPOHeartbeat(roomCode) {
@@ -128,12 +158,12 @@ export function clearPOHeartbeat(roomCode) {
 
 // ═══ COMPETITOR PRESENCE (with onDisconnect) ═══
 
-export function fbSafe(id) { return String(id).replace(/\./g, '_'); }
+export function fbSafe(id) { return String(id).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_'); }
 
 export function claimCompetitorName(roomCode, studentId) {
   const claimRef = ref(db, `rooms/${roomCode}/competitorClaims/${fbSafe(studentId)}`);
   onDisconnect(claimRef).remove();
-  return update(claimRef, { claimedAt: Date.now(), uid: _authUid });
+  return update(claimRef, { claimedAt: serverTimestamp(), uid: _authUid });
 }
 
 export function releaseCompetitorName(roomCode, studentId) {
@@ -144,12 +174,13 @@ export function releaseCompetitorName(roomCode, studentId) {
 
 // ═══ SPECTATOR PRESENCE (with onDisconnect) ═══
 
-export function claimSpectatorPresence(roomCode, spectatorId) {
+export async function claimSpectatorPresence(roomCode, spectatorId) {
+  const uid = await getAuthUid();
   // Use auth UID as spectator ID for security rules
-  const id = spectatorId || _authUid;
+  const id = spectatorId || uid;
   const presRef = ref(db, `rooms/${roomCode}/spectatorPresence/${fbSafe(id)}`);
   onDisconnect(presRef).remove();
-  return update(presRef, { heartbeat: Date.now(), uid: _authUid });
+  return update(presRef, { heartbeat: serverTimestamp(), uid });
 }
 
 export function releaseSpectatorPresence(roomCode, spectatorId) {
@@ -186,7 +217,7 @@ export async function claimCompetitorNameAtomic(roomCode, studentId) {
     if (existing && existing.claimedAt && (Date.now() - existing.claimedAt) < STALE_MS && existing.uid !== uid) {
       return; // abort — leaves the existing claim untouched
     }
-    return { claimedAt: Date.now(), uid };
+    return { claimedAt: serverTimestamp(), uid };
   }).then((result) => {
     if (!result.committed) {
       throw new Error("Name already claimed");
@@ -198,28 +229,13 @@ export async function claimCompetitorNameAtomic(roomCode, studentId) {
 
 // ═══ ROOM CLEANUP ═══
 
-export function cleanupStaleRooms() {
-  const roomsRef = ref(db, 'rooms');
-  onValue(roomsRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-    const cutoff = Date.now() - (12 * 60 * 60 * 1000); // 12 hours
-    Object.keys(data).forEach(code => {
-      const room = data[code];
-      if (room.updatedAt && room.updatedAt < cutoff) {
-        remove(ref(db, `rooms/${code}`)).catch(console.error);
-      }
-    });
-  }, { onlyOnce: true });
-}
-
 // ═══ DOCKET PROPOSALS ═══
 
 export function submitDocketProposal(roomCode, studentId, studentName, bills) {
   return set(ref(db, `rooms/${roomCode}/docketProposals/${fbSafe(studentId)}`), {
     bills,
     name: studentName,
-    submittedAt: Date.now(),
+    submittedAt: serverTimestamp(),
     uid: _authUid
   });
 }
@@ -234,6 +250,6 @@ export function adoptDocket(roomCode, docketBills, legislationPack) {
   return update(ref(db, `rooms/${roomCode}`), {
     docket: officialDocket,
     docketAdopted: true,
-    updatedAt: Date.now()
+    updatedAt: serverTimestamp()
   });
 }
