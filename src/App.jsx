@@ -290,11 +290,19 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
 
   const [landingPinLockUntil, setLandingPinLockUntil] = useState(0);
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const pinSubmitInFlightRef = useRef(false);
   const handlePinSubmit = async () => {
+    if (pinSubmitInFlightRef.current) return;
     if (Date.now() < landingPinLockUntil) { setJoinError(`Too many attempts. Wait ${Math.ceil((landingPinLockUntil - Date.now()) / 1000)}s.`); return; }
+    pinSubmitInFlightRef.current = true;
     setVerifyingPin(true);
-    const result = await verifyPoPin(pendingCode, pin);
-    setVerifyingPin(false);
+    let result;
+    try {
+      result = await verifyPoPin(pendingCode, pin);
+    } finally {
+      pinSubmitInFlightRef.current = false;
+      setVerifyingPin(false);
+    }
     if (result.ok) {
       getRoomOnce(pendingCode, (data) => {
         if (data) onRejoinPO(pendingCode, data, result.poStudentId ?? null, result.leaseToken);
@@ -1247,7 +1255,7 @@ export function useActiveRound(config, onCloseRoom) {
       setLeaseLost(false);
     };
     const handleRenewalError = (error) => {
-      console.error('PO lease renewal failed:', error);
+      console.error('PO lease renewal failed:', error.code, error.reason || 'unknown_reason', error);
       if (error.code === 'po_lease_lost' || error.code === 'not_controller') setLeaseLost(true);
     };
     const iv = setInterval(() => { renew().catch(handleRenewalError); }, 30000);
@@ -1832,16 +1840,24 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
   // PO claim
   const [pinLockUntil, setPinLockUntil] = useState(0);
   const [verifyingPin, setVerifyingPin] = useState(false);
+  const pinSubmitInFlightRef = useRef(false);
   const handleClaimPO = async () => {
+    if (pinSubmitInFlightRef.current) return;
     if (!state) return;
     if (Date.now() < pinLockUntil) { setPinError(`Too many attempts. Wait ${Math.ceil((pinLockUntil - Date.now()) / 1000)}s.`); return; }
     if (state.poHeartbeat && (Date.now() - (state.poHeartbeat.ts || state.poHeartbeat)) < STALE_MS) {
       setPinError("A PO is currently active in this room.");
       return;
     }
+    pinSubmitInFlightRef.current = true;
     setVerifyingPin(true);
-    const result = await verifyPoPin(roomCode, pin, competitorId || null);
-    setVerifyingPin(false);
+    let result;
+    try {
+      result = await verifyPoPin(roomCode, pin, competitorId || null);
+    } finally {
+      pinSubmitInFlightRef.current = false;
+      setVerifyingPin(false);
+    }
     if (result.ok) {
       onClaimPO(roomCode, state, result.poStudentId ?? null, result.leaseToken);
     } else if (result.error === "po_already_active") {

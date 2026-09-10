@@ -68,6 +68,7 @@ export async function authenticatedPost(path, body) {
   if (!response.ok && !['locked', 'incorrect_pin', 'po_already_active'].includes(result.error)) {
     const error = new Error(result.error || `Request failed (${response.status})`);
     error.code = result.error;
+    error.reason = result.reason;
     throw error;
   }
   return result;

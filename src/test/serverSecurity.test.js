@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
+import { getLeaseRenewalRejection } from '../../api/renew-po-lease.js';
 import { createLeaseToken, hashPin, leaseIdForToken, normalizeRoomCode, pinMatches } from '../../server/firebase-admin.js';
 
 describe('server security helpers', () => {
@@ -30,5 +31,16 @@ describe('server security helpers', () => {
     expect(leaseId).not.toContain(token);
     expect(leaseIdForToken(token)).toBe(leaseId);
     expect(leaseIdForToken('not-a-valid-token')).toBeNull();
+  });
+
+  it('renews when either the lease token or authenticated browser still matches', () => {
+    const now = 1_000;
+    const access = { controllerLeaseId: 'stored-token-id', controllerUid: 'original-uid', controllerExpiresAt: 2_000 };
+
+    expect(getLeaseRenewalRejection(access, 'stored-token-id', 'new-uid', now)).toBeNull();
+    expect(getLeaseRenewalRejection(access, 'stale-token-id', 'original-uid', now)).toBeNull();
+    expect(getLeaseRenewalRejection(access, 'stale-token-id', 'different-uid', now)).toBe('credentials_mismatch');
+    expect(getLeaseRenewalRejection({ ...access, controllerExpiresAt: now }, 'stored-token-id', 'original-uid', now)).toBe('expired');
+    expect(getLeaseRenewalRejection(null, 'stored-token-id', 'original-uid', now)).toBe('missing_lease');
   });
 });
