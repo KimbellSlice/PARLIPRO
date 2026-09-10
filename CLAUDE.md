@@ -47,6 +47,10 @@ Key top-level components, in file order:
 
 **Deployment.** Hosted on Vercel, auto-deploying from `main` on push (no CI config in-repo). See `DEPLOY.md` for the full non-technical walkthrough (GitHub → Vercel → custom domain) if relevant.
 
+## Workflow
+
+- Always ask for confirmation before running `git commit` or `git push` — never do either unprompted, even after finishing a task.
+
 ## Notable conventions
 
 - Firebase keys can't contain `.`, so any student/bill ID used as a Firebase path segment is passed through `fbSafe()` (replaces `.` with `_`) — this exists in both `App.jsx` and `firebase.js` as separate copies, keep them in sync if changed.
