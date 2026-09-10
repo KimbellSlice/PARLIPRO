@@ -2103,8 +2103,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
               return billsToShow.map((b, i) => {
                 const inDocket = !docketAdopted || i < dividerIdx;
                 const mySplit = isCompetitor ? ((splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "") : "";
-                const totals = getSplitTotals(b.id);
-                const manualTotals = getManualTotals(b.id);
                 const isPast = docketAdopted && inDocket && !!b.status;
                 return (
                   <React.Fragment key={b.id || i}>
@@ -2114,11 +2112,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", fontWeight: 600 }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
                         <span style={{ flex: 1, fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{b.name}</span>
                         {isPast && b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
-                        {(totals || manualTotals) && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                          {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
-                          {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                          {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
-                        </span>}
                       </div>
                       {isCompetitor && inDocket && !isPast && (
                         <div style={{ display: "flex", gap: 10, minWidth: 280 }}>
@@ -2127,7 +2120,6 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                           ))}
                         </div>
                       )}
-                      {!isCompetitor && !inDocket && !totals && <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540", fontStyle: "italic", marginTop: 4 }}>No splits</div>}
                     </div>
                   </React.Fragment>
                 );
