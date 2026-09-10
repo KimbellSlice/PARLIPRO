@@ -976,7 +976,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
                 <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
               </div>
             ))}
-            <button onClick={() => setAdoptConfirmPO("original")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: "transparent", color: "#9B917F", border: "1px solid #3a3530", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Original Docket</button>
+            <button onClick={() => setAdoptConfirmPO("original")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Original Docket</button>
           </div>
         ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>No legislation was entered at setup.</div>}
       </div>
