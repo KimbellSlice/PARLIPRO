@@ -906,13 +906,16 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1, flexWrap: manualMode ? "wrap" : "nowrap" }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
-                  {!manualMode && ((hasAuto || hasManual) ? (
-                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                      {hasAuto && <span><span style={{ color: "#5AE89A" }}>{auto.aff}A</span> / <span style={{ color: "#C45A5A" }}>{auto.neg}N</span></span>}
-                      {hasAuto && hasManual && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                      {hasManual && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manual.aff}A</span> / <span style={{ color: "#C45A5A" }}>{manual.neg}N</span></span>}
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                    <span style={{ fontSize: 9, color: "#9B917F", textTransform: "uppercase" }}>Room</span>
+                    {hasAuto ? <span><span style={{ color: "#5AE89A" }}>{auto.aff}A</span>/<span style={{ color: "#C45A5A" }}>{auto.neg}N</span></span> : <span style={{ color: "#4a4540" }}>—</span>}
+                  </span>
+                  {!manualMode && (
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                      <span style={{ fontSize: 9, color: "#9B917F", textTransform: "uppercase" }}>Manual</span>
+                      {hasManual ? <span><span style={{ color: "#5AE89A" }}>{manual.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manual.neg}N</span></span> : <span style={{ color: "#4a4540" }}>—</span>}
                     </span>
-                  ) : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>)}
+                  )}
                   {manualMode && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
@@ -921,7 +924,6 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
                         <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} onFocus={e => e.target.select()} style={{ ...IS, width: 36, padding: "4px 4px", fontSize: 12, textAlign: "center" }} />
                       </label>
-                      {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic", whiteSpace: "nowrap" }}>+{auto.aff}A/{auto.neg}N from app</span>}
                     </div>
                   )}
                 </div>
