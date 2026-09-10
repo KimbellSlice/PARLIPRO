@@ -66,4 +66,26 @@ describe('Realtime Database authorization', () => {
     const unauthDb = testEnv.unauthenticatedContext().database();
     await assertFails(get(ref(unauthDb, `rooms/${ROOM}`)));
   });
+
+  it('rejects controller arrays that exceed their bounded numeric keys', async () => {
+    const poDb = testEnv.authenticatedContext('po').database();
+    const oversizedRoster = Array.from({ length: 101 }, (_, index) => ({
+      id: `student-${index}`,
+      name: `Student ${index}`,
+    }));
+    await assertFails(set(ref(poDb, `rooms/${ROOM}/students`), oversizedRoster));
+  });
+
+  it('rejects docket proposals containing more than 100 bills', async () => {
+    const competitorDb = testEnv.authenticatedContext('competitor-uid').database();
+    await assertSucceeds(set(ref(competitorDb, `rooms/${ROOM}/competitorClaims/student-1`), {
+      uid: 'competitor-uid', claimedAt: Date.now(),
+    }));
+    await assertFails(set(ref(competitorDb, `rooms/${ROOM}/docketProposals/student-1`), {
+      uid: 'competitor-uid',
+      name: 'Competitor',
+      submittedAt: Date.now(),
+      bills: Array.from({ length: 101 }, (_, index) => `bill-${index}`),
+    }));
+  });
 });

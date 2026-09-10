@@ -8,21 +8,37 @@
 
         "students": {
           ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
-          ".validate": "newData.hasChildren() && newData.numChildren() <= 100",
-          "$student": { ".validate": "newData.hasChildren(['id', 'name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150" }
+          ".validate": "newData.hasChildren()",
+          "$student": { ".validate": "$student.matches(/^(0|[1-9][0-9]?)$/) && newData.hasChildren(['id', 'name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150" }
         },
         "seatingSlots": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
         "cols": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
         "frontSide": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
-        "docket": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
-        "legislationPack": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
+        "docket": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "newData.hasChildren()",
+          "$bill": { ".validate": "$bill.matches(/^(0|[1-9][0-9]?)$/) && newData.hasChildren(['id', 'name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150" }
+        },
+        "legislationPack": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "newData.hasChildren()",
+          "$bill": { ".validate": "$bill.matches(/^(0|[1-9][0-9]?)$/) && newData.hasChildren(['id', 'name']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150" }
+        },
         "poName": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isString() && newData.val().length <= 150" },
         "roomName": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isString() && newData.val().length <= 150" },
         "mode": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.val() === 'speech' || newData.val() === 'question'" },
-        "seekers": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 100" },
+        "seekers": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "newData.hasChildren()",
+          "$seeker": { ".validate": "$seeker.matches(/^(0|[1-9][0-9]?)$/) && (newData.isString() || newData.isNumber())" }
+        },
         "speechCounter": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isNumber() && newData.val() >= 0" },
         "questionCounter": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.isNumber() && newData.val() >= 0" },
-        "history": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now", ".validate": "newData.numChildren() <= 2000" },
+        "history": {
+          ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now",
+          ".validate": "newData.hasChildren()",
+          "$entry": { ".validate": "$entry.matches(/^(0|[1-9][0-9]{0,2}|1[0-9]{3})$/) && newData.hasChildren(['type', 'time']) && newData.child('type').isString() && newData.child('time').isNumber()" }
+        },
         "activeSpeech": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
         "currentBillIdx": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
         "speechStartTime": { ".write": "auth != null && root.child('rooms').child($roomCode).child('access').child('controllerUid').val() === auth.uid && root.child('rooms').child($roomCode).child('access').child('controllerExpiresAt').val() > now" },
@@ -69,7 +85,10 @@
         "docketProposals": {
           "$studentKey": {
             ".write": "auth != null && root.child('rooms').child($roomCode).child('competitorClaims').child($studentKey).child('uid').val() === auth.uid",
-            ".validate": "!newData.exists() || (newData.child('uid').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150 && newData.child('submittedAt').isNumber() && newData.child('bills').hasChildren() && newData.child('bills').numChildren() <= 100)"
+            ".validate": "!newData.exists() || (newData.hasChildren(['uid', 'name', 'submittedAt', 'bills']) && newData.child('uid').val() === auth.uid && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 150 && newData.child('submittedAt').isNumber() && newData.child('bills').hasChildren())",
+            "bills": {
+              "$bill": { ".validate": "$bill.matches(/^(0|[1-9][0-9]?)$/) && (newData.isString() || newData.isNumber())" }
+            }
           }
         },
         "spectatorPresence": {
