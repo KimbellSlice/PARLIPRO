@@ -806,6 +806,7 @@ function LogTab({ history }) {
 
 function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students, poStudentId, manualSplits }) {
   const [expandedBill, setExpandedBill] = useState(null);
+  const [source, setSource] = useState("room");
   const getSplitTotals = (billId) => {
     let aff = 0, neg = 0;
     if (splits) Object.entries(splits).forEach(([safeId, studentSplits]) => {
@@ -838,24 +839,29 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
   return (
     <div style={{ flex: 1, padding: 24, overflow: "auto" }}>
       <div style={{ maxWidth: 680, margin: "0 auto" }}>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>{editable ? "Edit Docket" : "Docket"}</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>{editable ? "Edit Docket" : "Docket"}</div>
+          <div style={{ display: "flex", border: "1px solid #3a3530", borderRadius: 6, overflow: "hidden" }}>
+            <button onClick={() => setSource("room")} style={{ padding: "4px 10px", background: source === "room" ? GOLD : "transparent", color: source === "room" ? "#1a1714" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Room</button>
+            <button onClick={() => setSource("po")} style={{ padding: "4px 10px", background: source === "po" ? GOLD : "transparent", color: source === "po" ? "#1a1714" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>PO</button>
+          </div>
+        </div>
         {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." aria-label="Add bill name" style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; const totals = getSplitTotals(b.id); const manualTotals = getManualTotals(b.id); const hasAny = !!(totals || manualTotals); const isExpanded = expandedBill === b.id; return (
+          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; const totals = getSplitTotals(b.id); const manualTotals = getManualTotals(b.id); const activeTotals = source === "room" ? totals : manualTotals; const canExpand = source === "room" && !!totals; const isExpanded = expandedBill === b.id; return (
             <div key={b.id || idx}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
-              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: hasAny ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => hasAny && setExpandedBill(isExpanded ? null : b.id)}>
+              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: canExpand ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => canExpand && setExpandedBill(isExpanded ? null : b.id)}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
-                {hasAny ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
-                  {totals && <span style={{ fontSize: 11 }}><span style={{ fontSize: 9, color: "#9B917F" }}>Room</span> <span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
-                  {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ fontSize: 9, color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
-                  {" "}<span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
+                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                  <span><span style={{ color: activeTotals ? "#5AE89A" : "#4a4540" }}>{activeTotals?.aff || 0}A</span>/<span style={{ color: activeTotals ? "#C45A5A" : "#4a4540" }}>{activeTotals?.neg || 0}N</span></span>
+                  {canExpand && <span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span>}
+                </span>
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
             </div>
-            {isExpanded && (() => { const names = getSplitNames(b.id); return (
+            {isExpanded && canExpand && (() => { const names = getSplitNames(b.id); return (
               <div style={{ marginLeft: 30, marginTop: 4, marginBottom: 4, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
@@ -867,9 +873,6 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
                     {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
                   </div>
                 </div>
-                {manualTotals && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>PO splits (not counted above): <span style={{ color: "#5AE89A" }}>{manualTotals.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manualTotals.neg || 0}N</span></div>
-                )}
               </div>
             ); })()}
             </div>); })}
