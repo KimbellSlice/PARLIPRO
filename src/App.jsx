@@ -8,7 +8,7 @@ const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44"
 export const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
 
 // Compute recommended docket: top 5 bills by debate score (interest × balance)
-export const computeRecommendedDocket = (legislationPack, splits, poStudentId) => {
+export const computeRecommendedDocket = (legislationPack, splits, poStudentId, manualSplits) => {
   if (!legislationPack || legislationPack.length === 0) return [];
   const scored = legislationPack.map(bill => {
     let aff = 0, neg = 0;
@@ -19,6 +19,8 @@ export const computeRecommendedDocket = (legislationPack, splits, poStudentId) =
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
+    const manual = manualSplits?.[fbSafe(bill.id)];
+    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
     const interest = aff + neg;
     const balance = interest > 0 ? 1 - Math.abs(aff - neg) / interest : 0;
     const score = interest * (0.5 + 0.5 * balance);
@@ -799,18 +801,19 @@ function LogTab({ history }) {
   );
 }
 
-function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students, poStudentId }) {
+function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onRemove, onMove, billInput, setBillInput, inputRef, splits, students, poStudentId, manualSplits }) {
   const [expandedBill, setExpandedBill] = useState(null);
   const getSplitTotals = (billId) => {
-    if (!splits) return null;
     let aff = 0, neg = 0;
-    Object.entries(splits).forEach(([safeId, studentSplits]) => {
+    if (splits) Object.entries(splits).forEach(([safeId, studentSplits]) => {
       if (poStudentId && safeId === fbSafe(poStudentId)) return;
       const s = studentSplits[fbSafe(billId)];
       if (s === "aff") aff++;
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
+    const manual = manualSplits?.[fbSafe(billId)];
+    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
   const getSplitNames = (billId) => {
@@ -843,16 +846,21 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
             </div>
-            {isExpanded && (() => { const names = getSplitNames(b.id); return (
-              <div style={{ marginLeft: 30, marginTop: 4, marginBottom: 4, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Affirmative ({names.aff.length})</div>
-                  {names.aff.length > 0 ? names.aff.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+            {isExpanded && (() => { const names = getSplitNames(b.id); const manual = manualSplits?.[fbSafe(b.id)]; return (
+              <div style={{ marginLeft: 30, marginTop: 4, marginBottom: 4, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Affirmative ({names.aff.length})</div>
+                    {names.aff.length > 0 ? names.aff.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Negative ({names.neg.length})</div>
+                    {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>Negative ({names.neg.length})</div>
-                  {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
-                </div>
+                {manual && ((manual.aff || 0) > 0 || (manual.neg || 0) > 0) && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>Manually set: <span style={{ color: "#5AE89A" }}>{manual.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manual.neg || 0}N</span></div>
+                )}
               </div>
             ); })()}
             </div>); })}
@@ -862,10 +870,15 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
   );
 }
 
-function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competitorSplits, poStudentId }) {
+function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competitorSplits, poStudentId, manualSplits, onSetManualSplit }) {
+  const [manualMode, setManualMode] = useState(false);
   return (
     <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
-      <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Chamber Splits</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>Chamber Splits</div>
+        <button onClick={() => setManualMode(m => !m)} style={{ padding: "6px 14px", background: manualMode ? GOLD : "transparent", color: manualMode ? "#1a1714" : GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{manualMode ? "Done" : "Manually Set Splits"}</button>
+      </div>
+      {manualMode && <div style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 16 }}>Set the number of affirmative/negative speeches you expect for each bill — useful if the room isn't submitting splits through the app. These add to any splits competitors set themselves.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(() => {
           const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
@@ -875,14 +888,28 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
           const dividerIdx = docketAdopted ? docket.length : -1;
           return billsToShow.map((b, i) => {
             const inDocket = !docketAdopted || i < dividerIdx;
-            const totals = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })();
+            const auto = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return { aff, neg }; })();
+            const manual = manualSplits?.[fbSafe(b.id)] || { aff: 0, neg: 0 };
+            const totalAff = auto.aff + (manual.aff || 0), totalNeg = auto.neg + (manual.neg || 0);
+            const hasTotals = totalAff > 0 || totalNeg > 0;
             return (
               <React.Fragment key={b.id}>
                 {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
-                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1, flexWrap: manualMode ? "wrap" : "nowrap" }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
-                  {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span> / <span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>}
+                  {!manualMode && (hasTotals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totalAff}A</span> / <span style={{ color: "#C45A5A" }}>{totalNeg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>)}
+                  {manualMode && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
+                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} style={{ width: 48, ...IS, padding: "4px 6px", fontSize: 12, textAlign: "center" }} />
+                      </label>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
+                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 48, ...IS, padding: "4px 6px", fontSize: 12, textAlign: "center" }} />
+                      </label>
+                      {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic" }}>+{auto.aff}A/{auto.neg}N from app</span>}
+                    </div>
+                  )}
                 </div>
               </React.Fragment>
             );
@@ -893,7 +920,7 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
   );
 }
 
-function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, onAdopted }) {
+function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, manualSplits, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, onAdopted }) {
   return (
     <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
       <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
@@ -901,7 +928,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
       {/* Recommended Docket */}
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket - Based on Splits</div>
-        {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId); return rec.length > 0 ? (
+        {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits); return rec.length > 0 ? (
           <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
             {rec.map((b, i) => (
               <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
@@ -941,7 +968,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
             {(() => { const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0)); const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; }; return allProposals.map(([safeId, proposal]) => (
               <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
                 <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
-                {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
+                {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill) return null; let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); const manual = manualSplits?.[fbSafe(bill.id)]; if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; } return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
                     <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
@@ -966,7 +993,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
               <button onClick={() => {
                 let billIds;
                 if (adoptConfirmPO === "recommended") {
-                  billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId).map(b => String(b.id));
+                  billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits).map(b => String(b.id));
                 } else if (adoptConfirmPO === "original") {
                   billIds = legislationPack.map(b => String(b.id));
                 } else {
@@ -1070,6 +1097,14 @@ export function useActiveRound(config, onCloseRoom) {
   const [showReleasePOConfirm, setShowReleasePOConfirm] = useState(false);
   const [competitorIntents, setCompetitorIntents] = useState({});
   const [competitorSplits, setCompetitorSplits] = useState({});
+  const [manualSplits, setManualSplits] = useState(restored?.manualSplits || config.manualSplits || {});
+  const setManualSplitForBill = (billId, aff, neg) => {
+    setManualSplits(p => {
+      const key = fbSafe(billId);
+      if (!aff && !neg) { const { [key]: _omit, ...rest } = p; return rest; }
+      return { ...p, [key]: { aff, neg } };
+    });
+  };
   const [docketProposals, setDocketProposals] = useState({});
   const [docketAdopted, setDocketAdopted] = useState(!!config.docketAdopted);
   const docketAdoptedRef = useRef(!!config.docketAdopted);
@@ -1138,10 +1173,11 @@ export function useActiveRound(config, onCloseRoom) {
         speechElapsed: currentSpeechElapsed.current || 0,
         affCount, negCount, speechSequence, inQuestionPeriod, questionPrec,
         poStudentId: poStudentId || null, lastSpeakerId: lastSpeakerId || null, questionBlockNum: questionBlockNum || 0, docketAdopted,
+        manualSplits,
       };
       writeRoomState(roomCode, state).catch(console.error);
     }, 150);
-  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, lastSpeakerId]);
+  }, [students, seatingSlots, docket, mode, seekers, speechCounter, questionCounter, history, activeSpeech, currentBillIdx, speechStartTime, affCount, negCount, speechSequence, inQuestionPeriod, questionPrec, roomCode, lastSpeakerId, manualSplits]);
 
   useEffect(() => { syncToFirebase(); return () => { if (syncTimerRef.current) clearTimeout(syncTimerRef.current); }; }, [syncToFirebase]);
 
@@ -1189,7 +1225,7 @@ export function useActiveRound(config, onCloseRoom) {
       activeSpeech, pendingSpeaker, affCount, negCount, speechSequence,
       currentBillIdx, speechStartTime, inQuestionPeriod, questionPrec, lastSpeakerId, questionBlockNum,
       timerElapsed: timerStateRef.current.elapsed, timerRunning: timerStateRef.current.running,
-      legislationPack, docketAdopted, poStudentId,
+      legislationPack, docketAdopted, poStudentId, manualSplits,
     };
     try { sessionStorage.setItem(`parlipro-po-${roomCode}`, JSON.stringify(save)); } catch(e) {}
   });
@@ -1331,7 +1367,7 @@ export function useActiveRound(config, onCloseRoom) {
     showPQConfirm, setShowPQConfirm, currentSpeechElapsed, docketBillInput, setDocketBillInput,
     docketInputRef, speechStartTime, setSpeechStartTime, showCloseConfirm, setShowCloseConfirm,
     showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents, setCompetitorIntents,
-    competitorSplits, setCompetitorSplits, docketProposals, setDocketProposals,
+    competitorSplits, setCompetitorSplits, manualSplits, setManualSplitForBill, docketProposals, setDocketProposals,
     docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
     competitorClaims, setCompetitorClaims, spectatorPresence, setSpectatorPresence, isMobile,
     showPrec, setShowPrec, mobileShowQueue, setMobileShowQueue, showNextSpeechConfirm, setShowNextSpeechConfirm,
@@ -1359,7 +1395,7 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
     showPQConfirm, setShowPQConfirm, currentSpeechElapsed, docketBillInput, setDocketBillInput,
     docketInputRef, showCloseConfirm, setShowCloseConfirm,
     showReleasePOConfirm, setShowReleasePOConfirm, competitorIntents,
-    competitorSplits, docketProposals,
+    competitorSplits, manualSplits, setManualSplitForBill, docketProposals,
     docketAdopted, setDocketAdopted, adoptConfirmPO, setAdoptConfirmPO, legislationPack,
     billIntro, setBillIntro, billResult, applyAdoptedDocket, dismissBillResult,
     competitorClaims, spectatorPresence, isMobile,
@@ -1590,14 +1626,14 @@ function ActiveRound({ config, onCloseRoom, onReleasePO }) {
           </div>
         </div>
       ) : activeTab === "splits" ? (
-        <SplitsTab isMobile={isMobile} docketAdopted={docketAdopted} docket={docket} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} />
+        <SplitsTab isMobile={isMobile} docketAdopted={docketAdopted} docket={docket} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} manualSplits={manualSplits} onSetManualSplit={setManualSplitForBill} />
       ) : activeTab === "orders" ? (
         <OrdersTab docket={docket} history={history} students={students} currentBillIdx={currentBillIdx} roundComplete={roundComplete} poName={poName} roomName={roomName} poStudentId={poStudentId} />
       ) : activeTab === "docket" ? (
         docketAdopted ? (
-          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} />
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={true} onAdd={addBillLive} onRemove={removeBillLive} onMove={moveBillLive} billInput={docketBillInput} setBillInput={setDocketBillInput} inputRef={docketInputRef} splits={competitorSplits} students={students} poStudentId={poStudentId} manualSplits={manualSplits} />
         ) : (
-          <DocketAdoptionPanel isMobile={isMobile} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} docketProposals={docketProposals} adoptConfirmPO={adoptConfirmPO} setAdoptConfirmPO={setAdoptConfirmPO} roomCode={roomCode} onAdopted={applyAdoptedDocket} />
+          <DocketAdoptionPanel isMobile={isMobile} legislationPack={legislationPack} competitorSplits={competitorSplits} poStudentId={poStudentId} manualSplits={manualSplits} docketProposals={docketProposals} adoptConfirmPO={adoptConfirmPO} setAdoptConfirmPO={setAdoptConfirmPO} roomCode={roomCode} onAdopted={applyAdoptedDocket} />
         )
       ) : activeTab === "roster" ? (
         <RosterTab students={students} onRename={renameStudent} onAdd={addStudentLive} />
@@ -1787,7 +1823,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], speechCounter = 0, questionCounter = 0, history = [], activeSpeech = null, currentBillIdx = 0, speechStartTime = null, questionPrec = "reverse", competitorIntents = {}, splits = {}, manualSplits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
@@ -1819,6 +1855,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
+    const manual = manualSplits?.[fbSafe(billId)];
+    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
   };
   const getSplitNames = (billId) => {
@@ -2069,13 +2107,13 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
         </div>
       ) : activeTab === "docket" ? (
         docketAdopted ? (
-          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} poStudentId={statePoStudentId} />
+          <DocketTab docket={docket} currentBillIdx={currentBillIdx} roundComplete={roundComplete} editable={false} splits={splits} students={students} poStudentId={statePoStudentId} manualSplits={manualSplits} />
         ) : (
           <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
             {/* Recommended Docket */}
             <div style={{ marginBottom: 24 }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10 }}>Recommended Docket - Based on Splits</div>
-              {(() => { const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId); return rec.length > 0 ? (
+              {(() => { const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId, manualSplits); return rec.length > 0 ? (
                 <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
                   {rec.map((b, i) => (
                     <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
@@ -2207,7 +2245,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                         if (nominationBills.length === 0) return;
                         const proposalKey = nominationBills.join(",");
                         // Check against recommended docket
-                        const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId);
+                        const rec = computeRecommendedDocket(legislationPack, splits, statePoStudentId, manualSplits);
                         const recKey = rec.map(b => String(b.id)).join(",");
                         if (proposalKey === recKey) { alert("This matches the Recommended Docket. Only submit if your docket is different."); return; }
                         // Check against all submitted dockets
