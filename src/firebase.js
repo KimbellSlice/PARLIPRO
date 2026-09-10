@@ -91,8 +91,8 @@ export function createRoom(roomCode, state, pin) {
 
 // ═══ PO CONTROL LEASES ═══
 
-export function claimPOLease(roomCode, pin) {
-  return authenticatedPost('/api/claim-po', { roomCode, pin });
+export function claimPOLease(roomCode, pin, studentId = null) {
+  return authenticatedPost('/api/claim-po', { roomCode, pin, studentId });
 }
 
 export function renewPOLease(roomCode) {

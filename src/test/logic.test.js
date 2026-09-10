@@ -33,12 +33,24 @@ vi.mock('../firebase.js', () => ({
   adoptDocket: vi.fn(),
 }));
 
-const { sortPrec, computeRecommendedDocket, sanitizeInput, containsProfanity } = await import('../App.jsx');
+const { sortPrec, computeRecommendedDocket, sanitizeInput, containsProfanity, getActivePoStudentId } = await import('../App.jsx');
 const { fbSafe } = await import('../firebase.js');
 
 function student(overrides) {
   return { id: 1, name: 'Student', speeches: 0, questions: 0, speechHistory: [], questionHistory: [], initialOrder: 0, questionOrder: 0, ...overrides };
 }
+
+describe('getActivePoStudentId', () => {
+  it('returns the selected PO only while a controller lease is active', () => {
+    const state = { poStudentId: 'student-1', access: { controllerUid: 'uid-1', controllerExpiresAt: 2000 } };
+    expect(getActivePoStudentId(state, 1000)).toBe('student-1');
+    expect(getActivePoStudentId(state, 2000)).toBeNull();
+  });
+
+  it('does not strand a PO name when no controller owns the room', () => {
+    expect(getActivePoStudentId({ poStudentId: 'student-1', access: { controllerUid: null, controllerExpiresAt: 0 } }, 1000)).toBeNull();
+  });
+});
 
 describe('sortPrec', () => {
   it('orders speech precedence by fewest speeches first', () => {

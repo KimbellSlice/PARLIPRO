@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
-import { writeRoomState, createRoom, claimPOLease, renewPOLease, releasePOLease, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateHeartbeat, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket, fbSafe } from "./firebase.js";
+import { writeRoomState, createRoom, claimPOLease, renewPOLease, releasePOLease, subscribeToRoom, checkRoomExists, deleteRoom, updateRoomElapsed, getRoomOnce, updateCompetitorIntent, updateCompetitorSplit, claimCompetitorName, releaseCompetitorName, claimSpectatorPresence, releaseSpectatorPresence, claimCompetitorNameAtomic, STALE_MS, getAuthUidSync, submitDocketProposal, withdrawDocketProposal, adoptDocket, fbSafe } from "./firebase.js";
 
 const generateCode = () => {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -14,6 +14,7 @@ const generatePin = () => {
 const shuffle = (a) => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
 const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44", "#3E2D4A", "#4A2D3B", "#2D424A", "#44402D", "#3A2D4A", "#2D4A36", "#4A2D44", "#2D3E4A", "#4A362D", "#2D4A4A", "#422D4A", "#4A2D36", "#2D454A", "#4A422D"];
 export const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
+export const getActivePoStudentId = (state, now = Date.now()) => state?.access?.controllerUid && state.access.controllerExpiresAt > now ? state.poStudentId || null : null;
 
 // Compute recommended docket: top 5 bills by debate score (interest × balance)
 export const computeRecommendedDocket = (legislationPack, splits, poStudentId, manualSplits, source = "app") => {
@@ -52,9 +53,9 @@ const escapeHtml = (str) => String(str ?? "").replace(/[&<>"']/g, (c) => ({ "&":
 // Verifies a PO PIN against the server-side check in api/verify-po-pin.js.
 // The PIN itself never lives in any client-readable Firebase data — see
 // Successful verification grants this authenticated browser a short-lived lease.
-async function verifyPoPin(roomCode, pin) {
+async function verifyPoPin(roomCode, pin, studentId = null) {
   try {
-    return await claimPOLease(roomCode, pin);
+    return await claimPOLease(roomCode, pin, studentId);
   } catch (e) {
     return { ok: false, error: e.code || "network_error" };
   }
@@ -296,7 +297,7 @@ export function LandingPage({ onCreateRoom, onJoinRoom, onJoinCompetitor, onRejo
     setVerifyingPin(false);
     if (result.ok) {
       getRoomOnce(pendingCode, (data) => {
-        if (data) onRejoinPO(pendingCode, data);
+        if (data) onRejoinPO(pendingCode, data, result.poStudentId ?? null);
         else setJoinError("Chamber not found.");
       }, () => setJoinError("PO access was granted, but the chamber could not be loaded. Try rejoining."));
       return;
@@ -1243,13 +1244,12 @@ export function useActiveRound(config, onCloseRoom) {
   useEffect(() => {
     const renew = async () => {
       await renewPOLease(roomCode);
-      await updateHeartbeat(roomCode);
+      setLeaseLost(false);
     };
     const handleRenewalError = (error) => {
       console.error('PO lease renewal failed:', error);
       if (error.code === 'po_lease_lost' || error.code === 'not_controller') setLeaseLost(true);
     };
-    renew().catch(handleRenewalError);
     const iv = setInterval(() => { renew().catch(handleRenewalError); }, 30000);
     return () => clearInterval(iv);
   }, [roomCode]);
@@ -1840,11 +1840,10 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       return;
     }
     setVerifyingPin(true);
-    const result = await verifyPoPin(roomCode, pin);
+    const result = await verifyPoPin(roomCode, pin, competitorId || null);
     setVerifyingPin(false);
     if (result.ok) {
-      if (isCompetitor) releaseCompetitorName(roomCode, competitorId).catch(console.error);
-      onClaimPO(roomCode, state, competitorId);
+      onClaimPO(roomCode, state, result.poStudentId ?? null);
     } else if (result.error === "po_already_active") {
       setPinError("A PO is currently active in this chamber.");
       setPin("");
@@ -1890,7 +1889,8 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
     );
   }
 
-  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], history = [], activeSpeech = null, currentBillIdx = 0, questionPrec = "reverse", competitorIntents = {}, splits = {}, manualSplits = {}, affCount = 0, negCount = 0, speechSequence = [], poStudentId: statePoStudentId = null } = state;
+  const { students: rawStudents = [], seatingSlots = [], cols = 4, frontSide = "bottom", docket = [], legislationPack = [], docketAdopted = false, docketProposals = {}, poName = "", roomName = "", mode = "speech", seekers = [], history = [], activeSpeech = null, currentBillIdx = 0, questionPrec = "reverse", competitorIntents = {}, splits = {}, manualSplits = {}, affCount = 0, negCount = 0, speechSequence = [] } = state;
+  const statePoStudentId = getActivePoStudentId(state);
   const students = rawStudents.map(s => ({ ...s, speeches: s.speeches||0, questions: s.questions||0, speechHistory: s.speechHistory||[], questionHistory: s.questionHistory||[] }));
   const getStudent = (id) => students.find(s => s.id === id);
   const roundComplete = docket.length > 0 && docket.every(b => b.status);
@@ -2453,7 +2453,7 @@ export default function App() {
       roomCode: firebaseData.roomCode || roomCode,
       poName: firebaseData.poName || "",
       roomName: firebaseData.roomName || "",
-      poStudentId: claimingStudentId || firebaseData.poStudentId || null,
+      poStudentId: claimingStudentId ?? null,
       legislationPack: firebaseData.legislationPack || firebaseData.docket || [],
       docketAdopted: firebaseData.docketAdopted || false,
     };

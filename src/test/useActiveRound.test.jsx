@@ -32,6 +32,7 @@ vi.mock('../firebase.js', () => ({
 }));
 
 const { useActiveRound } = await import('../App.jsx');
+const firebaseApi = await import('../firebase.js');
 
 function makeConfig(overrides) {
   return {
@@ -56,6 +57,18 @@ function makeConfig(overrides) {
 }
 
 describe('useActiveRound', () => {
+  it('waits for the renewal interval instead of racing the newly claimed lease', async () => {
+    vi.useFakeTimers();
+    firebaseApi.renewPOLease.mockClear();
+    const { unmount } = renderHook(() => useActiveRound(makeConfig(), vi.fn()));
+    expect(firebaseApi.renewPOLease).not.toHaveBeenCalled();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(30000); });
+    expect(firebaseApi.renewPOLease).toHaveBeenCalledTimes(1);
+    unmount();
+    vi.useRealTimers();
+  });
+
   it('walks a full cycle: recognize speaker -> end speech -> question period -> resolve bill -> next bill', () => {
     sessionStorage.clear();
     const onCloseRoom = vi.fn();

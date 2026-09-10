@@ -24,6 +24,14 @@ export default async function handler(req, res) {
     }
 
     const db = getAdminDatabase();
+    const roomRef = db.ref(`rooms/${code}`);
+    const room = (await roomRef.once('value')).val();
+    if (!room) return res.status(404).json({ ok: false, error: 'not_found' });
+    const requestedStudentId = req.body?.studentId ?? null;
+    const students = Array.isArray(room.students) ? room.students : Object.values(room.students || {});
+    if (requestedStudentId !== null && !students.some((student) => String(student?.id) === String(requestedStudentId))) {
+      return res.status(400).json({ ok: false, error: 'invalid_student' });
+    }
     const secretRef = db.ref(`roomSecrets/${code}`);
     const secret = (await secretRef.once('value')).val();
     if (!secret) return res.status(404).json({ ok: false, error: 'not_found' });
@@ -57,7 +65,7 @@ export default async function handler(req, res) {
       return res.status(200).json({ ok: false, error: 'incorrect_pin', attemptsLeft: MAX_ATTEMPTS - attempts.count });
     }
 
-    const accessRef = db.ref(`rooms/${code}/access`);
+    const accessRef = roomRef.child('access');
     const expiresAt = now + PO_LEASE_MS;
     const lease = await accessRef.transaction((current) => {
       if (!current) return { ownerUid: secret.ownerUid || user.uid, controllerUid: user.uid, controllerExpiresAt: expiresAt };
@@ -65,12 +73,22 @@ export default async function handler(req, res) {
       return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt };
     });
     if (!lease.committed) return res.status(409).json({ ok: false, error: 'po_already_active' });
+    const roomUpdates = {
+      poStudentId: requestedStudentId,
+      poHeartbeat: { uid: user.uid, ts: now },
+      updatedAt: now,
+    };
+    if (requestedStudentId !== null) {
+      const safeStudentId = String(requestedStudentId).replace(/[.#$]/g, '_').replaceAll('[', '_').replaceAll(']', '_').replaceAll('/', '_');
+      roomUpdates[`competitorClaims/${safeStudentId}`] = null;
+    }
+    await roomRef.update(roomUpdates);
     if (!secret.pinHash && secret.poPin) {
       const migrated = hashPin(pin);
       await secretRef.update({ pinSalt: migrated.salt, pinHash: migrated.hash, poPin: null, ownerUid: secret.ownerUid || user.uid });
     }
     await attemptRef.remove();
-    return res.status(200).json({ ok: true, expiresAt });
+    return res.status(200).json({ ok: true, expiresAt, poStudentId: requestedStudentId });
   } catch (error) {
     return sendError(res, error);
   }
