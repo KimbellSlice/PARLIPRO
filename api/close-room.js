@@ -1,4 +1,4 @@
-import { getAdminDatabase, leaseIdForToken, normalizeRoomCode, requireUser, sendError } from '../server/firebase-admin.js';
+import { getAdminDatabase, leaseIdForToken, normalizeRoomCode, requireUser, runServerTransaction, sendError } from '../server/firebase-admin.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
@@ -10,10 +10,7 @@ export default async function handler(req, res) {
     const now = Date.now();
     const controllerLeaseId = leaseIdForToken(req.body?.leaseToken);
     const accessRef = db.ref(`rooms/${code}/access`);
-    if (!(await accessRef.once('value')).exists()) {
-      return res.status(403).json({ ok: false, error: 'not_authorized' });
-    }
-    const lock = await accessRef.transaction((access) => {
+    const lock = await runServerTransaction(accessRef, (access) => {
       const authorized = access?.ownerUid === user.uid || (controllerLeaseId && access?.controllerLeaseId === controllerLeaseId && access?.controllerExpiresAt > now);
       if (!authorized) return;
       return { ...access, controllerUid: user.uid, controllerExpiresAt: now + 10000, closing: true };

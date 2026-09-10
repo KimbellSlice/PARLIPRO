@@ -34,6 +34,31 @@ export function getAdminDatabase() {
   return getDatabase(getAdminApp());
 }
 
+// Realtime Database transactions invoke their updater immediately from the
+// local cache. A fresh serverless instance has no cache, so an updater that
+// correctly aborts on null can abort before the initial server read arrives.
+// Keep a value listener attached until the transaction completes so its first
+// updater invocation starts with a complete server snapshot.
+export function runServerTransaction(reference, updater) {
+  return new Promise((resolve, reject) => {
+    let started = false;
+    const cleanup = () => reference.off('value', handleValue);
+    const handleError = (error) => {
+      cleanup();
+      reject(error);
+    };
+    const handleValue = () => {
+      if (started) return;
+      started = true;
+      Promise.resolve()
+        .then(() => reference.transaction(updater))
+        .then(resolve, reject)
+        .finally(cleanup);
+    };
+    reference.on('value', handleValue, handleError);
+  });
+}
+
 export async function requireUser(req) {
   const authorization = req.headers.authorization || '';
   const match = authorization.match(/^Bearer (.+)$/);

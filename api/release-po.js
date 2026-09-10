@@ -1,4 +1,4 @@
-import { getAdminDatabase, leaseIdForToken, normalizeRoomCode, requireUser, sendError } from '../server/firebase-admin.js';
+import { getAdminDatabase, leaseIdForToken, normalizeRoomCode, requireUser, runServerTransaction, sendError } from '../server/firebase-admin.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
@@ -9,10 +9,7 @@ export default async function handler(req, res) {
     if (!code || !controllerLeaseId) return res.status(400).json({ ok: false, error: 'invalid_input' });
     const db = getAdminDatabase();
     const accessRef = db.ref(`rooms/${code}/access`);
-    if (!(await accessRef.once('value')).exists()) {
-      return res.status(403).json({ ok: false, error: 'not_controller' });
-    }
-    const result = await accessRef.transaction((current) => {
+    const result = await runServerTransaction(accessRef, (current) => {
       if (!current || current.controllerLeaseId !== controllerLeaseId) return;
       return { ...current, controllerUid: null, controllerExpiresAt: 0, controllerLeaseId: null };
     });

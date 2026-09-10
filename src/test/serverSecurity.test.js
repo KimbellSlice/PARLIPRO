@@ -1,7 +1,7 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getLeaseRenewalRejection } from '../../api/renew-po-lease.js';
-import { createLeaseToken, hashPin, leaseIdForToken, normalizeRoomCode, pinMatches } from '../../server/firebase-admin.js';
+import { createLeaseToken, hashPin, leaseIdForToken, normalizeRoomCode, pinMatches, runServerTransaction } from '../../server/firebase-admin.js';
 
 describe('server security helpers', () => {
   it('normalizes valid room codes and rejects paths', () => {
@@ -42,5 +42,21 @@ describe('server security helpers', () => {
     expect(getLeaseRenewalRejection(access, 'stale-token-id', 'different-uid', now)).toBe('credentials_mismatch');
     expect(getLeaseRenewalRejection({ ...access, controllerExpiresAt: now }, 'stored-token-id', 'original-uid', now)).toBe('expired');
     expect(getLeaseRenewalRejection(null, 'stored-token-id', 'original-uid', now)).toBe('missing_lease');
+  });
+
+  it('waits for a server value before starting an abortable transaction', async () => {
+    let valueListener;
+    const reference = {
+      on: vi.fn((_event, callback) => { valueListener = callback; }),
+      off: vi.fn(),
+      transaction: vi.fn(async (updater) => ({ committed: updater({ controllerUid: 'uid' }) !== undefined })),
+    };
+
+    const pending = runServerTransaction(reference, (current) => current);
+    expect(reference.transaction).not.toHaveBeenCalled();
+    valueListener();
+    await expect(pending).resolves.toEqual({ committed: true });
+    expect(reference.transaction).toHaveBeenCalledOnce();
+    expect(reference.off).toHaveBeenCalledWith('value', valueListener);
   });
 });
