@@ -10,6 +10,9 @@ export default async function handler(req, res) {
     const now = Date.now();
     const controllerLeaseId = leaseIdForToken(req.body?.leaseToken);
     const accessRef = db.ref(`rooms/${code}/access`);
+    if (!(await accessRef.once('value')).exists()) {
+      return res.status(403).json({ ok: false, error: 'not_authorized' });
+    }
     const lock = await accessRef.transaction((access) => {
       const authorized = access?.ownerUid === user.uid || (controllerLeaseId && access?.controllerLeaseId === controllerLeaseId && access?.controllerExpiresAt > now);
       if (!authorized) return;

@@ -17,8 +17,17 @@ export default async function handler(req, res) {
     const now = Date.now();
     const expiresAt = now + PO_LEASE_MS;
     const roomRef = getAdminDatabase().ref(`rooms/${code}`);
+    const accessRef = roomRef.child('access');
+    // Prime this short-lived Admin SDK instance with the server value. Without
+    // this read, a transaction can invoke its updater with an empty local cache;
+    // returning undefined for that provisional null aborts before the lease is
+    // fetched from the server.
+    const accessSnapshot = await accessRef.once('value');
+    if (!accessSnapshot.exists()) {
+      return res.status(403).json({ ok: false, error: 'po_lease_lost', reason: 'missing_lease' });
+    }
     let rejectionReason = 'missing_lease';
-    const result = await roomRef.child('access').transaction((current) => {
+    const result = await accessRef.transaction((current) => {
       rejectionReason = getLeaseRenewalRejection(current, controllerLeaseId, user.uid, now);
       if (rejectionReason) return;
       return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt };

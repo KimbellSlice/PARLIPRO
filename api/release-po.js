@@ -9,6 +9,9 @@ export default async function handler(req, res) {
     if (!code || !controllerLeaseId) return res.status(400).json({ ok: false, error: 'invalid_input' });
     const db = getAdminDatabase();
     const accessRef = db.ref(`rooms/${code}/access`);
+    if (!(await accessRef.once('value')).exists()) {
+      return res.status(403).json({ ok: false, error: 'not_controller' });
+    }
     const result = await accessRef.transaction((current) => {
       if (!current || current.controllerLeaseId !== controllerLeaseId) return;
       return { ...current, controllerUid: null, controllerExpiresAt: 0, controllerLeaseId: null };
