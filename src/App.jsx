@@ -1908,18 +1908,31 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       </header>
 
       {createdPin && (
-        <div style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}11)`, border: `1px solid ${GOLD}44`, borderRadius: 0, padding: isMobile ? "12px 16px" : "14px 24px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: isMobile ? 12 : 20, flexWrap: "wrap" }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
-              Chamber created! Share code <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{roomCode}</span>
-            </div>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#E8E0D0" }}>
-              PO PIN: <span style={{ color: GOLD, fontWeight: 700, fontSize: 14, letterSpacing: "0.12em" }}>{createdPin}</span>
-            </div>
+        <div style={{ background: `linear-gradient(135deg, ${GOLD}22, ${GOLD}11)`, border: `1px solid ${GOLD}44`, borderRadius: 0, padding: isMobile ? "12px 12px 14px" : "14px 24px 18px" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
             <button onClick={onDismissPin} style={{ background: "none", border: "1px solid #6b6358", borderRadius: 4, color: "#9B917F", fontFamily: "'DM Mono', monospace", fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>Dismiss</button>
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", textAlign: "center", maxWidth: 560, lineHeight: 1.6 }}>
-            <b style={{ color: "#E8E0D0" }}>If you're the Presiding Officer:</b> click <b style={{ color: "#E8E0D0" }}>Select Name</b> above, pick your name, then click <b style={{ color: "#E8E0D0" }}>Claim PO</b> and enter the PIN above. (You can also do this from another device — go to parliproapp.com, join with the room code, select your name, then enter the PIN.) <b style={{ color: "#E8E0D0" }}>Everyone else:</b> go to parliproapp.com, join this chamber with the room code above, select your name, and you'll be able to set bill splits and nominate a docket from there.
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
+            <div style={{ flex: isMobile ? "1 1 100%" : "1 1 200px", minWidth: 200, background: "#1e1b17", border: `1px solid ${GOLD}55`, borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Chamber Code &amp; PO PIN</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>ROOM CODE</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 20, color: "#E8E0D0", fontWeight: 700, letterSpacing: "0.12em", marginBottom: 10 }}>{roomCode}</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>PO PIN</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 24, color: GOLD, fontWeight: 700, letterSpacing: "0.15em" }}>{createdPin}</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F", marginTop: 8, lineHeight: 1.6 }}>The Presiding Officer will need this PIN to claim control of the chamber.</div>
+            </div>
+            <div style={{ flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 200, background: "#1e1b17", border: "1px solid #3a3530", borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Presiding Officer</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
+                You're already in the chamber — no need to join separately to run the round. Click <b style={{ color: "#E8E0D0" }}>Select Name</b> above, pick your name, then click <b style={{ color: "#E8E0D0" }}>Claim PO</b> and enter the PIN. (Running from another device instead? Go to parliproapp.com, join with the room code, select your name, then enter the PIN.)
+              </div>
+            </div>
+            <div style={{ flex: isMobile ? "1 1 100%" : "1 1 240px", minWidth: 200, background: "#1e1b17", border: "1px solid #3a3530", borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: GOLD, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10 }}>Competitors &amp; Spectators</div>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, color: "#9B917F", lineHeight: 1.6 }}>
+                Go to parliproapp.com, join this chamber with the room code above, and select your name. You'll be able to set bill splits and nominate a docket from there.
+              </div>
+            </div>
           </div>
         </div>
       )}
