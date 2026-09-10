@@ -902,10 +902,10 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
                   {manualMode && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
-                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} style={{ width: 32, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
+                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} onFocus={e => e.target.select()} style={{ width: 22, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
                       </label>
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
-                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} style={{ width: 32, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
+                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} onFocus={e => e.target.select()} style={{ width: 22, ...IS, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
                       </label>
                       {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic", whiteSpace: "nowrap" }}>+{auto.aff}A/{auto.neg}N from app</span>}
                     </div>
