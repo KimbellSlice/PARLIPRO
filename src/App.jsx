@@ -8,19 +8,22 @@ const COLORS = ["#2D4A3E", "#3B2D4A", "#4A2D2D", "#2D3B4A", "#4A3B2D", "#2D4A44"
 export const sortPrec = (s, type, questionPrecMode) => { const k = type === "speech" ? "speeches" : "questions", h = type === "speech" ? "speechHistory" : "questionHistory"; return [...s].sort((a, b) => { if ((a[k]||0) !== (b[k]||0)) return (a[k]||0) - (b[k]||0); const aH = a[h] || [], bH = b[h] || []; const aL = aH.length ? aH[aH.length - 1] : -1, bL = bH.length ? bH[bH.length - 1] : -1; if (aL !== bL) return aL - bL; if (type === "question" && questionPrecMode === "random") return (a.questionOrder||0) - (b.questionOrder||0); if (type === "question" && questionPrecMode === "reverse") return (b.initialOrder||0) - (a.initialOrder||0); return (a.initialOrder||0) - (b.initialOrder||0); }); };
 
 // Compute recommended docket: top 5 bills by debate score (interest × balance)
-export const computeRecommendedDocket = (legislationPack, splits, poStudentId, manualSplits) => {
+export const computeRecommendedDocket = (legislationPack, splits, poStudentId, manualSplits, source = "app") => {
   if (!legislationPack || legislationPack.length === 0) return [];
   const scored = legislationPack.map(bill => {
     let aff = 0, neg = 0;
-    if (splits) Object.entries(splits).forEach(([safeId, studentSplits]) => {
-      if (poStudentId && safeId === fbSafe(poStudentId)) return;
-      const s = studentSplits[fbSafe(bill.id)];
-      if (s === "aff") aff++;
-      else if (s === "neg") neg++;
-      else if (s === "both") { aff++; neg++; }
-    });
-    const manual = manualSplits?.[fbSafe(bill.id)];
-    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
+    if (source === "manual") {
+      const manual = manualSplits?.[fbSafe(bill.id)];
+      if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
+    } else if (splits) {
+      Object.entries(splits).forEach(([safeId, studentSplits]) => {
+        if (poStudentId && safeId === fbSafe(poStudentId)) return;
+        const s = studentSplits[fbSafe(bill.id)];
+        if (s === "aff") aff++;
+        else if (s === "neg") neg++;
+        else if (s === "both") { aff++; neg++; }
+      });
+    }
     const interest = aff + neg;
     const balance = interest > 0 ? 1 - Math.abs(aff - neg) / interest : 0;
     const score = interest * (0.5 + 0.5 * balance);
@@ -812,9 +815,11 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
-    const manual = manualSplits?.[fbSafe(billId)];
-    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
+  };
+  const getManualTotals = (billId) => {
+    const manual = manualSplits?.[fbSafe(billId)];
+    return manual && ((manual.aff || 0) > 0 || (manual.neg || 0) > 0) ? manual : null;
   };
   const getSplitNames = (billId) => {
     if (!splits || !students) return { aff: [], neg: [] };
@@ -836,17 +841,21 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 16 }}>{editable ? "Edit Docket" : "Docket"}</div>
         {editable && (<div style={{ display: "flex", gap: 8, marginBottom: 16 }}><input ref={inputRef} value={billInput} onChange={e => setBillInput(e.target.value)} onKeyDown={e => e.key === "Enter" && onAdd()} placeholder="Add bill..." aria-label="Add bill name" style={{ flex: 1, ...IS }} /><button onClick={onAdd} style={{ padding: "10px 20px", background: GOLD, color: "#1a1a1a", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Add</button></div>)}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; const totals = getSplitTotals(b.id); const isExpanded = expandedBill === b.id; return (
+          {docket.map((b, idx) => { const isPast = idx < currentBillIdx; const isCurrent = idx === currentBillIdx && !roundComplete; const totals = getSplitTotals(b.id); const manualTotals = getManualTotals(b.id); const hasAny = !!(totals || manualTotals); const isExpanded = expandedBill === b.id; return (
             <div key={b.id || idx}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, opacity: isPast ? 0.5 : 1 }}>
               <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", width: 22, textAlign: "right" }}>{idx + 1}.</span>
-              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: totals ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => totals && setExpandedBill(isExpanded ? null : b.id)}>
+              <div style={{ flex: 1, background: "#2a2520", border: isCurrent ? `1px solid ${GOLD}` : "1px solid #3a3530", borderRadius: 7, padding: "9px 14px", fontSize: 14, fontWeight: 600, display: "flex", alignItems: "center", gap: 8, cursor: hasAny ? "pointer" : "default", wordBreak: "break-word", minWidth: 0 }} onClick={() => hasAny && setExpandedBill(isExpanded ? null : b.id)}>
                 {b.name}{b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}{isCurrent && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: GOLD }}>CURRENT</span>}
-                {totals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600 }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span> <span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
+                {hasAny ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                  {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                  {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
+                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
+                  {" "}<span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
             </div>
-            {isExpanded && (() => { const names = getSplitNames(b.id); const manual = manualSplits?.[fbSafe(b.id)]; return (
+            {isExpanded && (() => { const names = getSplitNames(b.id); return (
               <div style={{ marginLeft: 30, marginTop: 4, marginBottom: 4, padding: "10px 14px", background: "#1e1b17", borderRadius: 6, border: "1px solid #3a3530" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                   <div>
@@ -858,8 +867,8 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
                     {names.neg.length > 0 ? names.neg.map((n, i) => <div key={i} style={{ fontSize: 12, color: "#E8E0D0", padding: "2px 0" }}>{n}</div>) : <div style={{ fontSize: 11, color: "#4a4540", fontStyle: "italic" }}>None</div>}
                   </div>
                 </div>
-                {manual && ((manual.aff || 0) > 0 || (manual.neg || 0) > 0) && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>Manually set: <span style={{ color: "#5AE89A" }}>{manual.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manual.neg || 0}N</span></div>
+                {manualTotals && (
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>Manually set (not counted above): <span style={{ color: "#5AE89A" }}>{manualTotals.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manualTotals.neg || 0}N</span></div>
                 )}
               </div>
             ); })()}
@@ -878,7 +887,7 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
         <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase" }}>Chamber Splits</div>
         <button onClick={() => setManualMode(m => !m)} style={{ padding: "6px 14px", background: manualMode ? GOLD : "transparent", color: manualMode ? "#1a1714" : GOLD, border: `1px solid ${GOLD}`, borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer", textTransform: "uppercase", letterSpacing: "0.05em" }}>{manualMode ? "Done" : "Manually Set Splits"}</button>
       </div>
-      {manualMode && <div style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 16 }}>Set the number of affirmative/negative speeches you expect for each bill — useful if the room isn't submitting splits through the app. These add to any splits competitors set themselves.</div>}
+      {manualMode && <div style={{ fontSize: 12, color: "#9B917F", fontStyle: "italic", marginBottom: 16 }}>Set the number of affirmative/negative speeches you expect for each bill — useful if the room isn't submitting splits through the app. These are tracked separately from splits competitors set themselves.</div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {(() => {
           const docketIds = docketAdopted ? docket.map(b => String(b.id)) : [];
@@ -890,22 +899,27 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
             const inDocket = !docketAdopted || i < dividerIdx;
             const auto = (() => { let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([safeId, ss]) => { if (poStudentId && safeId === fbSafe(poStudentId)) return; const s = ss[fbSafe(b.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return { aff, neg }; })();
             const manual = manualSplits?.[fbSafe(b.id)] || { aff: 0, neg: 0 };
-            const totalAff = auto.aff + (manual.aff || 0), totalNeg = auto.neg + (manual.neg || 0);
-            const hasTotals = totalAff > 0 || totalNeg > 0;
+            const hasAuto = auto.aff > 0 || auto.neg > 0, hasManual = (manual.aff || 0) > 0 || (manual.neg || 0) > 0;
             return (
               <React.Fragment key={b.id}>
                 {i === dividerIdx && dividerIdx > 0 && <div style={{ borderTop: "1px solid #3a3530", margin: "8px 0", paddingTop: 8 }}><div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", textTransform: "uppercase", letterSpacing: "0.1em" }}>Not in Docket</div></div>}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "#2a2520", borderRadius: 7, border: "1px solid #3a3530", opacity: !inDocket ? 0.4 : 1, flexWrap: manualMode ? "wrap" : "nowrap" }}>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", width: 22, textAlign: "right" }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
-                  {!manualMode && (hasTotals ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totalAff}A</span> / <span style={{ color: "#C45A5A" }}>{totalNeg}N</span></span> : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>)}
+                  {!manualMode && ((hasAuto || hasManual) ? (
+                    <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                      {hasAuto && <span><span style={{ color: "#5AE89A" }}>{auto.aff}A</span> / <span style={{ color: "#C45A5A" }}>{auto.neg}N</span></span>}
+                      {hasAuto && hasManual && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
+                      {hasManual && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manual.aff}A</span> / <span style={{ color: "#C45A5A" }}>{manual.neg}N</span></span>}
+                    </span>
+                  ) : <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#4a4540" }}>No splits</span>)}
                   {manualMode && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#5AE89A", textTransform: "uppercase" }}>Aff
-                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} onFocus={e => e.target.select()} style={{ ...IS, width: 22, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
+                        <input type="number" min="0" value={manual.aff || 0} onChange={e => onSetManualSplit(b.id, Math.max(0, parseInt(e.target.value, 10) || 0), manual.neg || 0)} onFocus={e => e.target.select()} style={{ ...IS, width: 36, padding: "4px 4px", fontSize: 12, textAlign: "center" }} />
                       </label>
                       <label style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#C45A5A", textTransform: "uppercase" }}>Neg
-                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} onFocus={e => e.target.select()} style={{ ...IS, width: 22, padding: "4px 2px", fontSize: 12, textAlign: "center" }} />
+                        <input type="number" min="0" value={manual.neg || 0} onChange={e => onSetManualSplit(b.id, manual.aff || 0, Math.max(0, parseInt(e.target.value, 10) || 0))} onFocus={e => e.target.select()} style={{ ...IS, width: 36, padding: "4px 4px", fontSize: 12, textAlign: "center" }} />
                       </label>
                       {(auto.aff + auto.neg) > 0 && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, color: "#6b6358", fontStyle: "italic", whiteSpace: "nowrap" }}>+{auto.aff}A/{auto.neg}N from app</span>}
                     </div>
@@ -921,14 +935,21 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
 }
 
 function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poStudentId, manualSplits, docketProposals, adoptConfirmPO, setAdoptConfirmPO, roomCode, onAdopted }) {
+  const [scoreSource, setScoreSource] = useState("app");
   return (
     <div style={{ padding: isMobile ? 16 : 32, maxWidth: 700, margin: "0 auto" }}>
       <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 14, color: GOLD, letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: 20 }}>Adopt a Docket</div>
 
       {/* Recommended Docket */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>Recommended Docket - Based on Splits</div>
-        {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits); return rec.length > 0 ? (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, letterSpacing: "0.1em", textTransform: "uppercase" }}>Recommended Docket - Based on {scoreSource === "manual" ? "Manual Splits" : "Room Splits"}</div>
+          <div style={{ display: "flex", border: "1px solid #3a3530", borderRadius: 6, overflow: "hidden" }}>
+            <button onClick={() => setScoreSource("app")} style={{ padding: "4px 10px", background: scoreSource === "app" ? GOLD : "transparent", color: scoreSource === "app" ? "#1a1714" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Room</button>
+            <button onClick={() => setScoreSource("manual")} style={{ padding: "4px 10px", background: scoreSource === "manual" ? GOLD : "transparent", color: scoreSource === "manual" ? "#1a1714" : "#9B917F", border: "none", fontFamily: "'DM Mono', monospace", fontSize: 10, fontWeight: 700, cursor: "pointer", textTransform: "uppercase" }}>Manual</button>
+          </div>
+        </div>
+        {(() => { const rec = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits, scoreSource); return rec.length > 0 ? (
           <div style={{ background: "#2a2520", borderRadius: 10, border: `1px solid ${GOLD}44`, padding: "14px 16px" }}>
             {rec.map((b, i) => (
               <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: i < rec.length - 1 ? "1px solid #3a3530" : "none" }}>
@@ -939,7 +960,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
             ))}
             <button onClick={() => setAdoptConfirmPO("recommended")} style={{ width: "100%", marginTop: 10, padding: "8px 0", background: `linear-gradient(135deg, ${GOLD}, #C49632)`, color: "#1a1714", border: "none", borderRadius: 6, fontFamily: "'DM Mono', monospace", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>Adopt Recommended Docket</button>
           </div>
-        ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>Waiting for competitor splits...</div>; })()}
+        ) : <div style={{ color: "#4a4540", fontStyle: "italic", fontSize: 12 }}>{scoreSource === "manual" ? "No manual splits set yet." : "Waiting for competitor splits..."}</div>; })()}
       </div>
 
       {/* Original Docket */}
@@ -968,7 +989,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
             {(() => { const allProposals = Object.entries(docketProposals).sort((a, b) => (a[1].submittedAt || 0) - (b[1].submittedAt || 0)); const getLabel = (safeId) => { const idx = allProposals.findIndex(([k]) => k === safeId); return `Docket ${String.fromCharCode(65 + idx)}`; }; return allProposals.map(([safeId, proposal]) => (
               <div key={safeId} style={{ background: "#2a2520", borderRadius: 10, border: "1px solid #3a3530", padding: "14px 16px" }}>
                 <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: GOLD, fontWeight: 600, marginBottom: 8 }}>{getLabel(safeId)} — {proposal.name}</div>
-                {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill) return null; let aff = 0, neg = 0; if (competitorSplits) Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); const manual = manualSplits?.[fbSafe(bill.id)]; if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; } return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
+                {(proposal.bills || []).map((billId, i) => { const bill = legislationPack.find(b => String(b.id) === String(billId)); const totals = (() => { if (!bill || !competitorSplits) return null; let aff = 0, neg = 0; Object.entries(competitorSplits).forEach(([sid, ss]) => { if (poStudentId && sid === fbSafe(poStudentId)) return; const s = ss[fbSafe(bill.id)]; if (s === "aff") aff++; else if (s === "neg") neg++; else if (s === "both") { aff++; neg++; } }); return (aff > 0 || neg > 0) ? { aff, neg } : null; })(); return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "4px 0", borderBottom: i < proposal.bills.length - 1 ? "1px solid #3a3530" : "none" }}>
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#6b6358", width: 20, textAlign: "right" }}>{i + 1}.</span>
                     <span style={{ flex: 1, fontSize: 12, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{bill?.name || "Unknown"}</span>
@@ -993,7 +1014,7 @@ function DocketAdoptionPanel({ isMobile, legislationPack, competitorSplits, poSt
               <button onClick={() => {
                 let billIds;
                 if (adoptConfirmPO === "recommended") {
-                  billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits).map(b => String(b.id));
+                  billIds = computeRecommendedDocket(legislationPack, competitorSplits, poStudentId, manualSplits, scoreSource).map(b => String(b.id));
                 } else if (adoptConfirmPO === "original") {
                   billIds = legislationPack.map(b => String(b.id));
                 } else {
@@ -1855,9 +1876,11 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
       else if (s === "neg") neg++;
       else if (s === "both") { aff++; neg++; }
     });
-    const manual = manualSplits?.[fbSafe(billId)];
-    if (manual) { aff += manual.aff || 0; neg += manual.neg || 0; }
     return (aff > 0 || neg > 0) ? { aff, neg } : null;
+  };
+  const getManualTotals = (billId) => {
+    const manual = manualSplits?.[fbSafe(billId)];
+    return manual && ((manual.aff || 0) > 0 || (manual.neg || 0) > 0) ? manual : null;
   };
   const getSplitNames = (billId) => {
     const affNames = [], negNames = [];
@@ -2079,6 +2102,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                 const inDocket = !docketAdopted || i < dividerIdx;
                 const mySplit = isCompetitor ? ((splits[fbSafe(competitorId)] || {})[fbSafe(b.id)] || "") : "";
                 const totals = getSplitTotals(b.id);
+                const manualTotals = getManualTotals(b.id);
                 const isPast = docketAdopted && inDocket && !!b.status;
                 return (
                   <React.Fragment key={b.id || i}>
@@ -2088,7 +2112,11 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                         <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", fontWeight: 600 }}>{inDocket && docketAdopted ? `${i + 1}.` : "·"}</span>
                         <span style={{ flex: 1, fontSize: isMobile ? 16 : 18, fontWeight: 600 }}>{b.name}</span>
                         {isPast && b.status && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, fontWeight: 600, color: b.status === "passed" ? "#5AE89A" : "#C45A5A", textTransform: "uppercase" }}>{b.status}</span>}
-                        {totals && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358" }}><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                        {(totals || manualTotals) && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
+                          {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
+                          {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
+                          {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
+                        </span>}
                       </div>
                       {isCompetitor && inDocket && !isPast && (
                         <div style={{ display: "flex", gap: 10, minWidth: 280 }}>
