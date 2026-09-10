@@ -850,7 +850,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
                 {hasAny ? <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 13, color: "#6b6358", marginLeft: "auto", fontWeight: 600, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                   {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                   {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
+                  {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
                   {" "}<span style={{ fontSize: 9, color: "#6b6358" }}>{isExpanded ? "▲" : "▼"}</span></span> : null}
               </div>
               {editable && !isPast && !isCurrent && (<><div style={{ display: "flex", flexDirection: "column", gap: 2 }}>{idx > currentBillIdx + 1 && <button onClick={() => onMove(idx, -1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▲</button>}{idx < docket.length - 1 && <button onClick={() => onMove(idx, 1)} style={{ background: "none", border: "none", color: "#9B917F", cursor: "pointer", fontSize: 12, lineHeight: 1, padding: 0 }}>▼</button>}</div><button onClick={() => onRemove(b.id)} style={{ background: "none", border: "none", color: "#6b6358", cursor: "pointer", fontSize: 18, padding: "4px 8px" }}>×</button></>)}
@@ -868,7 +868,7 @@ function DocketTab({ docket, currentBillIdx, roundComplete, editable, onAdd, onR
                   </div>
                 </div>
                 {manualTotals && (
-                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>Manually set (not counted above): <span style={{ color: "#5AE89A" }}>{manualTotals.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manualTotals.neg || 0}N</span></div>
+                  <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #3a3530", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#9B917F" }}>PO splits (not counted above): <span style={{ color: "#5AE89A" }}>{manualTotals.aff || 0}A</span> / <span style={{ color: "#C45A5A" }}>{manualTotals.neg || 0}N</span></div>
                 )}
               </div>
             ); })()}
@@ -908,12 +908,12 @@ function SplitsTab({ isMobile, docketAdopted, docket, legislationPack, competito
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 600, wordBreak: "break-word", minWidth: 0 }}>{b.name}</span>
                   <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
                     <span style={{ fontSize: 9, color: "#9B917F", textTransform: "uppercase" }}>Room</span>
-                    {hasAuto ? <span><span style={{ color: "#5AE89A" }}>{auto.aff}A</span>/<span style={{ color: "#C45A5A" }}>{auto.neg}N</span></span> : <span style={{ color: "#4a4540" }}>—</span>}
+                    <span><span style={{ color: hasAuto ? "#5AE89A" : "#4a4540" }}>{auto.aff}A</span>/<span style={{ color: hasAuto ? "#C45A5A" : "#4a4540" }}>{auto.neg}N</span></span>
                   </span>
                   {!manualMode && (
                     <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: "#6b6358", display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-                      <span style={{ fontSize: 9, color: "#9B917F", textTransform: "uppercase" }}>Manual</span>
-                      {hasManual ? <span><span style={{ color: "#5AE89A" }}>{manual.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manual.neg}N</span></span> : <span style={{ color: "#4a4540" }}>—</span>}
+                      <span style={{ fontSize: 9, color: "#9B917F", textTransform: "uppercase" }}>PO</span>
+                      <span><span style={{ color: hasManual ? "#5AE89A" : "#4a4540" }}>{manual.aff || 0}A</span>/<span style={{ color: hasManual ? "#C45A5A" : "#4a4540" }}>{manual.neg || 0}N</span></span>
                     </span>
                   )}
                   {manualMode && (
@@ -2117,7 +2117,7 @@ function SpectatorView({ roomCode, competitorId, competitorName, onClaimPO, onSe
                         {(totals || manualTotals) && <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, color: "#6b6358", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}>
                           {totals && <span><span style={{ color: "#5AE89A" }}>{totals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{totals.neg}N</span></span>}
                           {totals && manualTotals && <span style={{ fontSize: 10, color: "#4a4540" }}>·</span>}
-                          {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>M</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
+                          {manualTotals && <span style={{ fontSize: 11 }}><span style={{ color: "#9B917F" }}>PO</span> <span style={{ color: "#5AE89A" }}>{manualTotals.aff}A</span>/<span style={{ color: "#C45A5A" }}>{manualTotals.neg}N</span></span>}
                         </span>}
                       </div>
                       {isCompetitor && inDocket && !isPast && (
