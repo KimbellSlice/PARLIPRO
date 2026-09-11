@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { getAdminDatabase, hashPin, normalizeRoomCode, requireUser, sendError } from '../server/firebase-admin.js';
+import { createApiContext, sendApiResponse } from '../server/api-observability.js';
 
 const MAX_ROOM_BYTES = 250000;
 
@@ -11,14 +12,15 @@ function validateInitialState(state, code) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  const context = createApiContext(req, res, 'create_room');
+  if (req.method !== 'POST') return sendApiResponse(res, context, 405, { ok: false, error: 'method_not_allowed' }, 'method_not_allowed');
   try {
     const user = await requireUser(req);
     const code = normalizeRoomCode(req.body?.roomCode);
     const pin = req.body?.pin;
     const state = req.body?.state;
     if (!code || typeof pin !== 'string' || !/^\d{6}$/.test(pin) || !validateInitialState(state, code)) {
-      return res.status(400).json({ ok: false, error: 'invalid_input' });
+      return sendApiResponse(res, context, 400, { ok: false, error: 'invalid_input' }, 'invalid_input');
     }
 
     const db = getAdminDatabase();
@@ -29,12 +31,12 @@ export default async function handler(req, res) {
       ownerUid: user.uid,
       reservedAt: Date.now(),
     } : undefined);
-    if (!reservation.committed) return res.status(409).json({ ok: false, error: 'room_code_taken' });
+    if (!reservation.committed) return sendApiResponse(res, context, 409, { ok: false, error: 'room_code_taken' }, 'room_code_taken');
 
     const roomRef = db.ref(`rooms/${code}`);
     if ((await roomRef.once('value')).exists()) {
       await secretRef.transaction((current) => current?.reservationId === reservationId ? null : undefined);
-      return res.status(409).json({ ok: false, error: 'room_code_taken' });
+      return sendApiResponse(res, context, 409, { ok: false, error: 'room_code_taken' }, 'room_code_taken');
     }
 
     const { salt, hash } = hashPin(pin);
@@ -58,8 +60,8 @@ export default async function handler(req, res) {
       await secretRef.transaction((current) => current?.reservationId === reservationId ? null : undefined);
       throw error;
     }
-    return res.status(201).json({ ok: true, roomCode: code });
+    return sendApiResponse(res, context, 201, { ok: true, roomCode: code }, 'success');
   } catch (error) {
-    return sendError(res, error);
+    return sendError(res, error, context);
   }
 }

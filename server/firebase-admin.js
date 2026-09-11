@@ -2,6 +2,7 @@ import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'node:crypt
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
+import { sendApiResponse } from './api-observability.js';
 
 const DATABASE_URL = 'https://parlipro-fd42b-default-rtdb.firebaseio.com';
 
@@ -100,8 +101,16 @@ export function pinMatches(secret, pin) {
   return false;
 }
 
-export function sendError(res, error) {
+export function sendError(res, error, context) {
   const status = Number.isInteger(error?.status) ? error.status : 500;
-  if (status >= 500) console.error('API error:', error);
-  res.status(status).json({ ok: false, error: status >= 500 ? 'server_error' : error.message });
+  const errorCode = status >= 500 ? 'server_error' : error.message;
+  const outcome = status >= 500 ? 'server_error' : 'request_error';
+  const knownErrorCategories = {
+    Error: 'error',
+    FirebaseError: 'firebase_error',
+    RangeError: 'range_error',
+    TypeError: 'type_error',
+  };
+  const errorCategory = knownErrorCategories[error?.name] || 'unknown_error';
+  return sendApiResponse(res, context, status, { ok: false, error: errorCode }, outcome, { errorCategory });
 }
