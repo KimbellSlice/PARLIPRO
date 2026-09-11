@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const testState = vi.hoisted(() => ({ database: null }));
 
@@ -160,8 +160,12 @@ function request(body, uid = 'owner', method = 'POST') {
 
 async function invoke(handler, body, uid = 'owner', method = 'POST') {
   const response = {
+    headers: {},
     statusCode: 200,
     body: null,
+    setHeader(name, value) {
+      this.headers[name] = value;
+    },
     status(code) {
       this.statusCode = code;
       return this;
@@ -184,8 +188,15 @@ function initialRoomState(roomCode = 'ABCDE') {
 }
 
 describe('server endpoint workflow', () => {
+  let logSpies;
+
   beforeEach(() => {
     testState.database = new MemoryDatabase();
+    logSpies = ['info', 'warn', 'error'].map((method) => vi.spyOn(console, method).mockImplementation(() => {}));
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('creates, claims, repeatedly renews, releases, reclaims, expires, and closes a chamber', async () => {
@@ -196,6 +207,7 @@ describe('server endpoint workflow', () => {
     });
     expect(created.statusCode).toBe(201);
     expect(created.body).toEqual({ ok: true, roomCode: 'ABCDE' });
+    expect(created.headers['x-request-id']).toMatch(/^[a-f0-9-]{36}$/);
 
     const claimed = await invoke(claimPo, { roomCode: 'ABCDE', pin: '123456', studentId: 'student-1' }, 'po-one');
     expect(claimed.statusCode).toBe(200);
@@ -235,6 +247,11 @@ describe('server endpoint workflow', () => {
     expect(closed.statusCode).toBe(200);
     expect(testState.database.data.rooms?.ABCDE).toBeUndefined();
     expect(testState.database.data.roomSecrets?.ABCDE).toBeUndefined();
+
+    const logged = logSpies.flatMap((spy) => spy.mock.calls.flat()).join(' ');
+    for (const secret of ['123456', firstLeaseToken, 'Ada', 'Grace', 'student-1', 'student-2', 'user:po-one']) {
+      expect(logged).not.toContain(secret);
+    }
   });
 
   it('waits for server state before lease transactions on a cold serverless instance', async () => {

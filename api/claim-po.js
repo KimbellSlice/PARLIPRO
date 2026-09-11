@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createLeaseToken, getAdminDatabase, hashPin, leaseIdForToken, normalizeRoomCode, pinMatches, PO_LEASE_MS, requireUser, sendError } from '../server/firebase-admin.js';
+import { createApiContext, sendApiResponse } from '../server/api-observability.js';
 
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MS = 30000;
@@ -14,27 +15,28 @@ function incrementFailures(reference, now, maxAttempts, lockoutMs) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  const context = createApiContext(req, res, 'claim_po');
+  if (req.method !== 'POST') return sendApiResponse(res, context, 405, { ok: false, error: 'method_not_allowed' }, 'method_not_allowed');
   try {
     const user = await requireUser(req);
     const code = normalizeRoomCode(req.body?.roomCode);
     const pin = req.body?.pin;
     if (!code || typeof pin !== 'string' || !/^\d{4,6}$/.test(pin)) {
-      return res.status(400).json({ ok: false, error: 'invalid_input' });
+      return sendApiResponse(res, context, 400, { ok: false, error: 'invalid_input' }, 'invalid_input');
     }
 
     const db = getAdminDatabase();
     const roomRef = db.ref(`rooms/${code}`);
     const room = (await roomRef.once('value')).val();
-    if (!room) return res.status(404).json({ ok: false, error: 'not_found' });
+    if (!room) return sendApiResponse(res, context, 404, { ok: false, error: 'not_found' }, 'not_found');
     const requestedStudentId = req.body?.studentId ?? null;
     const students = Array.isArray(room.students) ? room.students : Object.values(room.students || {});
     if (requestedStudentId !== null && !students.some((student) => String(student?.id) === String(requestedStudentId))) {
-      return res.status(400).json({ ok: false, error: 'invalid_student' });
+      return sendApiResponse(res, context, 400, { ok: false, error: 'invalid_student' }, 'invalid_student');
     }
     const secretRef = db.ref(`roomSecrets/${code}`);
     const secret = (await secretRef.once('value')).val();
-    if (!secret) return res.status(404).json({ ok: false, error: 'not_found' });
+    if (!secret) return sendApiResponse(res, context, 404, { ok: false, error: 'not_found' }, 'not_found');
 
     const attemptKey = createHash('sha256').update(user.uid).digest('hex');
     const attemptRef = secretRef.child(`pinAttempts/${attemptKey}`);
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
     ]);
     const lockUntil = Math.max(currentAttempt?.lockUntil || 0, currentIpAttempt?.lockUntil || 0);
     if (lockUntil > now) {
-      return res.status(429).json({ ok: false, error: 'locked', lockedForSeconds: Math.ceil((lockUntil - now) / 1000) });
+      return sendApiResponse(res, context, 429, { ok: false, error: 'locked', lockedForSeconds: Math.ceil((lockUntil - now) / 1000) }, 'locked');
     }
 
     if (!pinMatches(secret, pin)) {
@@ -60,9 +62,9 @@ export default async function handler(req, res) {
       const ipAttempts = ipAttemptResult.snapshot.val();
       const newLockUntil = Math.max(attempts.lockUntil || 0, ipAttempts.lockUntil || 0);
       if (newLockUntil > now) {
-        return res.status(429).json({ ok: false, error: 'locked', lockedForSeconds: Math.ceil((newLockUntil - now) / 1000) });
+        return sendApiResponse(res, context, 429, { ok: false, error: 'locked', lockedForSeconds: Math.ceil((newLockUntil - now) / 1000) }, 'locked');
       }
-      return res.status(200).json({ ok: false, error: 'incorrect_pin', attemptsLeft: MAX_ATTEMPTS - attempts.count });
+      return sendApiResponse(res, context, 200, { ok: false, error: 'incorrect_pin', attemptsLeft: MAX_ATTEMPTS - attempts.count }, 'incorrect_pin');
     }
 
     const accessRef = roomRef.child('access');
@@ -74,7 +76,7 @@ export default async function handler(req, res) {
       if (current.controllerUid && current.controllerUid !== user.uid && current.controllerExpiresAt > now) return;
       return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt, controllerLeaseId };
     });
-    if (!lease.committed) return res.status(409).json({ ok: false, error: 'po_already_active' });
+    if (!lease.committed) return sendApiResponse(res, context, 409, { ok: false, error: 'po_already_active' }, 'po_already_active');
     const roomUpdates = {
       poStudentId: requestedStudentId,
       poHeartbeat: { uid: user.uid, ts: now },
@@ -90,8 +92,8 @@ export default async function handler(req, res) {
       await secretRef.update({ pinSalt: migrated.salt, pinHash: migrated.hash, poPin: null, ownerUid: secret.ownerUid || user.uid });
     }
     await attemptRef.remove();
-    return res.status(200).json({ ok: true, expiresAt, poStudentId: requestedStudentId, leaseToken });
+    return sendApiResponse(res, context, 200, { ok: true, expiresAt, poStudentId: requestedStudentId, leaseToken }, 'success');
   } catch (error) {
-    return sendError(res, error);
+    return sendError(res, error, context);
   }
 }

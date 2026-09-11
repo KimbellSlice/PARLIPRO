@@ -1,4 +1,5 @@
 import { getAdminDatabase, leaseIdForToken, normalizeRoomCode, PO_LEASE_MS, requireUser, runServerTransaction, sendError } from '../server/firebase-admin.js';
+import { createApiContext, sendApiResponse } from '../server/api-observability.js';
 
 export function getLeaseRenewalRejection(access, controllerLeaseId, uid, now) {
   if (!access) return 'missing_lease';
@@ -8,12 +9,13 @@ export function getLeaseRenewalRejection(access, controllerLeaseId, uid, now) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ ok: false, error: 'method_not_allowed' });
+  const context = createApiContext(req, res, 'renew_po_lease');
+  if (req.method !== 'POST') return sendApiResponse(res, context, 405, { ok: false, error: 'method_not_allowed' }, 'method_not_allowed');
   try {
     const user = await requireUser(req);
     const code = normalizeRoomCode(req.body?.roomCode);
     const controllerLeaseId = leaseIdForToken(req.body?.leaseToken);
-    if (!code || !controllerLeaseId) return res.status(400).json({ ok: false, error: 'invalid_input' });
+    if (!code || !controllerLeaseId) return sendApiResponse(res, context, 400, { ok: false, error: 'invalid_input' }, 'invalid_input');
     const now = Date.now();
     const expiresAt = now + PO_LEASE_MS;
     const roomRef = getAdminDatabase().ref(`rooms/${code}`);
@@ -24,10 +26,10 @@ export default async function handler(req, res) {
       if (rejectionReason) return;
       return { ...current, controllerUid: user.uid, controllerExpiresAt: expiresAt };
     });
-    if (!result.committed) return res.status(403).json({ ok: false, error: 'po_lease_lost', reason: rejectionReason });
+    if (!result.committed) return sendApiResponse(res, context, 403, { ok: false, error: 'po_lease_lost', reason: rejectionReason }, 'po_lease_lost', { reason: rejectionReason });
     await roomRef.update({ poHeartbeat: { uid: user.uid, ts: now }, updatedAt: now });
-    return res.status(200).json({ ok: true, expiresAt });
+    return sendApiResponse(res, context, 200, { ok: true, expiresAt }, 'success');
   } catch (error) {
-    return sendError(res, error);
+    return sendError(res, error, context);
   }
 }
